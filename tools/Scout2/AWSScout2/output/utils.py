@@ -17,14 +17,14 @@ def prompt_4_yes_no(question):
     :return:                            :boolean
     """
     while True:
-        sys.stdout.write(question + ' (y/n)? ')
+        sys.stdout.write(f'{question} (y/n)? ')
         try:
             choice = raw_input().lower()
         except:
             choice = input().lower()
-        if choice == 'yes' or choice == 'y':
+        if choice in ['yes', 'y']:
             return True
-        elif choice == 'no' or choice == 'n':
+        elif choice in ['no', 'n']:
             return False
         else:
             printError('\'%s\' is not a valid answer. Enter \'yes\'(y) or \'no\'(n).' % choice)
@@ -41,27 +41,29 @@ def prompt_4_overwrite(filename, force_write):
     #
     if not os.path.exists(filename) or force_write:
         return True
-    return prompt_4_yes_no('File \'{}\' already exists. Do you want to overwrite it'.format(filename))
+    return prompt_4_yes_no(
+        f"File \'{filename}\' already exists. Do you want to overwrite it"
+    )
 
 
 def get_filename(config_type, profile, report_dir):
-        if config_type == AWSCONFIG:
-            filename = AWSCONFIG_FILE
-            first_line = 'aws_info ='
-        elif config_type == EXCEPTIONS:
-            filename = EXCEPTIONS_FILE
-            first_line = 'exceptions ='
-        elif config_type == HTMLREPORT:
-            filename = HTMLREPORT_FILE
-            first_line = None
-        elif config_type == AWSRULESET:
-            filename = AWSRULESET_FILE
-            first_line = 'aws_info ='
-        else:
-            printError('invalid config type provided (%s)' % config_type)
-            raise Exception
+    if config_type == AWSCONFIG:
+        filename = AWSCONFIG_FILE
+        first_line = 'aws_info ='
+    elif config_type == EXCEPTIONS:
+        filename = EXCEPTIONS_FILE
+        first_line = 'exceptions ='
+    elif config_type == HTMLREPORT:
+        filename = HTMLREPORT_FILE
+        first_line = None
+    elif config_type == AWSRULESET:
+        filename = AWSRULESET_FILE
+        first_line = 'aws_info ='
+    else:
+        printError(f'invalid config type provided ({config_type})')
+        raise Exception
         # Append profile name if necessary
-        if profile != 'default' and config_type != AWSRULESET:
-            name, extention = filename.split('.')
-            filename = '%s-%s.%s' % (name, profile, extention)
-        return (os.path.join(report_dir, filename), first_line)
+    if profile != 'default' and config_type != AWSRULESET:
+        name, extention = filename.split('.')
+        filename = f'{name}-{profile}.{extention}'
+    return (os.path.join(report_dir, filename), first_line)

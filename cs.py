@@ -26,7 +26,7 @@ def main():
         else:
             gcpaudit.gcp_audit(args.project_name)
 
-                
+
 
     elif args.environment == 'aws':
         from modules import awsaudit
@@ -40,12 +40,10 @@ def main():
             if not(args.password):
                 password = None
             localaudit.local_audit(args.audit_ip, args.user_name, args.pem_file, password)
-            exit(0)
         else:
             awsaudit.aws_audit()
             merger.merge()
-            exit(0)
-
+        exit(0)
     elif args.environment == 'azure':
         from modules import azureaudit
         azureaudit.azure_audit()

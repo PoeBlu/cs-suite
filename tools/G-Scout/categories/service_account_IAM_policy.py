@@ -11,7 +11,17 @@ headers = {"Content-Length":0}
 def insert_sa_policies(projectId, db):
 	service_accounts = db.table("Service Account").all()
 	for account in service_accounts:
-		resp, content = storage.get().authorize(Http()).request("https://iam.googleapis.com/v1/projects/" + projectId + "/serviceAccounts/"+ account['uniqueId'] +":getIamPolicy","POST",headers=headers)
+		resp, content = (
+			storage.get()
+			.authorize(Http())
+			.request(
+				f"https://iam.googleapis.com/v1/projects/{projectId}/serviceAccounts/"
+				+ account['uniqueId']
+				+ ":getIamPolicy",
+				"POST",
+				headers=headers,
+			)
+		)
 		try:
 			for policy in json.loads(content)['bindings']:
 				db.table('Service Account').update(

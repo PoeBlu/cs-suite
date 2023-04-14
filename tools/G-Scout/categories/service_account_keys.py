@@ -21,7 +21,16 @@ def insert_service_account_keys(projectId, db):
 					eids=[sa.eid])
 
 def list_service_account_keys(sa, projectId):
-	resp, content = storage.get().authorize(Http()).request("https://iam.googleapis.com/v1/projects/" + projectId + "/serviceAccounts/"+ sa['uniqueId'] +"/keys","GET")
+	resp, content = (
+		storage.get()
+		.authorize(Http())
+		.request(
+			f"https://iam.googleapis.com/v1/projects/{projectId}/serviceAccounts/"
+			+ sa['uniqueId']
+			+ "/keys",
+			"GET",
+		)
+	)
 	return json.loads(content)['keys']
 
 # Function to pass Tinydb for the update query
@@ -35,6 +44,4 @@ def add_key(key):
 
 def key_is_old(key):
 	creation_date = datetime.datetime.strptime(key['validAfterTime'][:10], "%Y-%m-%d")
-	if creation_date < datetime.datetime.now() - datetime.timedelta(days=90):
-		return True
-	return False
+	return creation_date < datetime.datetime.now() - datetime.timedelta(days=90)

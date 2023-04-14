@@ -36,7 +36,9 @@ class TestAWSScout2RulesProcessingEngine:
         rule_counters = {'found': 0, 'tested': 0, 'verified': 0}
         for file_name in ruleset['rules']:
             rule_counters['found'] += 1
-            test_config_file_name = os.path.join(test_dir, 'data/rule-configs/%s' % file_name)
+            test_config_file_name = os.path.join(
+                test_dir, f'data/rule-configs/{file_name}'
+            )
             if not os.path.isfile(test_config_file_name):
                 continue
             rule_counters['tested'] += 1
@@ -57,7 +59,9 @@ class TestAWSScout2RulesProcessingEngine:
             service = file_name.split('-')[0]
             findings = aws_config['services'][service]['findings']
             findings = findings[list(findings.keys())[0]]['items']
-            test_result_file_name = os.path.join(test_dir, 'data/rule-results/%s' % file_name)
+            test_result_file_name = os.path.join(
+                test_dir, f'data/rule-results/{file_name}'
+            )
             if not os.path.isfile(test_result_file_name):
                 printError('Expected findings:: ')
                 printError(json.dumps(findings, indent = 4))

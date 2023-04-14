@@ -47,7 +47,9 @@ class S3Config(BaseConfig):
             bucket['region'] = 'eu-west-1'
         # h4ck :: S3 is global but region-aware...
         if bucket['region'] not in params['api_clients']:
-            printInfo('Skipping bucket %s (region %s outside of scope)' % (bucket['name'], bucket['region']))
+            printInfo(
+                f"Skipping bucket {bucket['name']} (region {bucket['region']} outside of scope)"
+            )
             self.buckets_count -= 1
             return
 
@@ -73,34 +75,35 @@ class S3Config(BaseConfig):
 
 
 def match_iam_policies_and_buckets(s3_info, iam_info):
-    if 'Action' in iam_info['permissions']:
-        for action in (x for x in iam_info['permissions']['Action'] if ((x.startswith('s3:') and x != 's3:ListAllMyBuckets') or (x == '*'))):
-            for iam_entity in iam_info['permissions']['Action'][action]:
-                if 'Allow' in iam_info['permissions']['Action'][action][iam_entity]:
-                    for allowed_iam_entity in iam_info['permissions']['Action'][action][iam_entity]['Allow']:
-                        # For resource statements, we can easily rely on the existing permissions structure
-                        if 'Resource' in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]:
-                            for full_path in (x for x in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['Resource'] if x.startswith('arn:aws:s3:') or x == '*'):
-                                parts = full_path.split('/')
-                                bucket_name = parts[0].split(':')[-1]
-                                update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity, iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['Resource'][full_path])
-                        # For notresource statements, we must fetch the policy document to determine which buckets are not protected
-                        if 'NotResource' in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]:
-                            for full_path in (x for x in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'] if x.startswith('arn:aws:s3:') or x == '*'):
-                                for policy_type in ['InlinePolicies', 'ManagedPolicies']:
-                                    if policy_type in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path]:
-                                        for policy in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path][policy_type]:
-                                            update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam_entity, full_path, policy_type, policy)
+    if 'Action' not in iam_info['permissions']:
+        return
+    for action in (x for x in iam_info['permissions']['Action'] if ((x.startswith('s3:') and x != 's3:ListAllMyBuckets') or (x == '*'))):
+        for iam_entity in iam_info['permissions']['Action'][action]:
+            if 'Allow' in iam_info['permissions']['Action'][action][iam_entity]:
+                for allowed_iam_entity in iam_info['permissions']['Action'][action][iam_entity]['Allow']:
+                    # For resource statements, we can easily rely on the existing permissions structure
+                    if 'Resource' in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]:
+                        for full_path in (x for x in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['Resource'] if x.startswith('arn:aws:s3:') or x == '*'):
+                            parts = full_path.split('/')
+                            bucket_name = parts[0].split(':')[-1]
+                            update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity, iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['Resource'][full_path])
+                    # For notresource statements, we must fetch the policy document to determine which buckets are not protected
+                    if 'NotResource' in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]:
+                        for full_path in (x for x in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'] if x.startswith('arn:aws:s3:') or x == '*'):
+                            for policy_type in ['InlinePolicies', 'ManagedPolicies']:
+                                if policy_type in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path]:
+                                    for policy in iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path][policy_type]:
+                                        update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam_entity, full_path, policy_type, policy)
 
 
 def update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity, policy_info):
     if bucket_name != '*' and bucket_name in s3_info['buckets']:
         bucket = s3_info['buckets'][bucket_name]
         manage_dictionary(bucket, iam_entity, {})
-        manage_dictionary(bucket, iam_entity + '_count', 0)
-        if not allowed_iam_entity in bucket[iam_entity]:
+        manage_dictionary(bucket, f'{iam_entity}_count', 0)
+        if allowed_iam_entity not in bucket[iam_entity]:
             bucket[iam_entity][allowed_iam_entity] = {}
-            bucket[iam_entity + '_count'] = bucket[iam_entity + '_count'] + 1
+            bucket[f'{iam_entity}_count'] = bucket[f'{iam_entity}_count'] + 1
 
         if 'inline_policies' in policy_info:
             manage_dictionary(bucket[iam_entity][allowed_iam_entity], 'inline_policies', {})
@@ -111,16 +114,9 @@ def update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity,
     elif bucket_name == '*':
         for bucket in s3_info['buckets']:
             update_iam_permissions(s3_info, bucket, iam_entity, allowed_iam_entity, policy_info)
-        pass
-    else:
-        # Could be an error or cross-account access, ignore...
-        pass
 
 def update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam_entity, full_path, policy_type, policy_name):
-    allowed_buckets = []
-    # By default, all buckets are allowed
-    for bucket_name in s3_info['buckets']:
-        allowed_buckets.append(bucket_name)
+    allowed_buckets = list(s3_info['buckets'])
     if policy_type == 'InlinePolicies':
         policy = iam_info[iam_entity.title()][allowed_iam_entity]['Policies'][policy_name]['PolicyDocument']
     elif policy_type == 'ManagedPolicies':
@@ -132,33 +128,27 @@ def update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam
             parts = target_path.split('/')
             bucket_name = parts[0].split(':')[-1]
             path = '/' + '/'.join(parts[1:]) if len(parts) > 1 else '/'
-            if (path == '/' or path == '/*') and (bucket_name in allowed_buckets):
+            if path in ['/', '/*'] and bucket_name in allowed_buckets:
                 # Remove bucket from list
                 allowed_buckets.remove(bucket_name)
             elif bucket_name == '*':
                 allowed_buckets = []
-    policy_info = {}
-    policy_info[policy_type] = {}
+    policy_info = {policy_type: {}}
     policy_info[policy_type][policy_name] = iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path][policy_type][policy_name]
     for bucket_name in allowed_buckets:
         update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity, policy_info)
 
 def init_s3_permissions():
-    permissions = {}
-    permissions['read'] = False
-    permissions['write'] = False
-    permissions['read_acp'] = False
-    permissions['write_acp'] = False
-    return permissions
+    return {'read': False, 'write': False, 'read_acp': False, 'write_acp': False}
 
 def set_s3_permissions(permissions, name):
-    if name == 'READ' or name == 'FULL_CONTROL':
+    if name in ['READ', 'FULL_CONTROL']:
         permissions['read'] = True
-    if name == 'WRITE' or name == 'FULL_CONTROL':
+    if name in ['WRITE', 'FULL_CONTROL']:
         permissions['write'] = True
-    if name == 'READ_ACP' or name == 'FULL_CONTROL':
+    if name in ['READ_ACP', 'FULL_CONTROL']:
         permissions['read_acp'] = True
-    if name == 'WRITE_ACP' or name == 'FULL_CONTROL':
+    if name in ['WRITE_ACP', 'FULL_CONTROL']:
         permissions['write_acp'] = True
 
 def s3_group_to_string(uri):
@@ -202,9 +192,10 @@ def get_s3_bucket_policy(api_client, bucket_name, bucket_info):
     try:
         bucket_info['policy'] = json.loads(api_client.get_bucket_policy(Bucket = bucket_name)['Policy'])
     except Exception as e:
-        if type(e) == ClientError and e.response['Error']['Code'] == 'NoSuchBucketPolicy':
-            pass
-        else:
+        if (
+            type(e) != ClientError
+            or e.response['Error']['Code'] != 'NoSuchBucketPolicy'
+        ):
             printException(e)
 
 
@@ -226,7 +217,7 @@ def get_s3_bucket_logging(api_client, bucket_name, bucket_info):
         else:
             bucket_info['logging'] = 'Disabled'
     except Exception as e:
-        printError('Failed to get logging configuration for %s' % bucket_name)
+        printError(f'Failed to get logging configuration for {bucket_name}')
         printException(e)
         bucket_info['logging'] = 'Unknown'
 
@@ -237,19 +228,21 @@ def get_s3_bucket_webhosting(api_client, bucket_name, bucket_info):
     except Exception as e:
         # TODO: distinguish permission denied from  'NoSuchWebsiteConfiguration' errors
         bucket_info['web_hosting'] = 'Disabled'
-        pass
 
 
 # List all available buckets
 def get_s3_buckets(api_client, s3_info, s3_params):
     manage_dictionary(s3_info, 'buckets', {})
     buckets = api_client[get_s3_list_region(s3_params['selected_regions'])].list_buckets()['Buckets']
-    targets = []
-    for b in buckets:
-        # Abort if bucket is not of interest
-        if (b['Name'] in s3_params['skipped_buckets']) or (len(s3_params['checked_buckets']) and b['Name'] not in s3_params['checked_buckets']):
-            continue
-        targets.append(b)
+    targets = [
+        b
+        for b in buckets
+        if b['Name'] not in s3_params['skipped_buckets']
+        and (
+            not len(s3_params['checked_buckets'])
+            or b['Name'] in s3_params['checked_buckets']
+        )
+    ]
     s3_info['buckets_count'] = len(targets)
     s3_params['api_clients'] = api_client
     s3_params['s3_info'] = s3_info

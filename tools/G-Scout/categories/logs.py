@@ -7,5 +7,12 @@ db = TinyDB('entities.json')
 
 def list_log_services():
 	projectId = TinyDB('projects.json').table("Project").all()
-	resp, content = storage.get().authorize(Http()).request("https://logging.googleapis.com/v1beta3/projects/" + projectId + "/logServices","GET")
+	resp, content = (
+		storage.get()
+		.authorize(Http())
+		.request(
+			f"https://logging.googleapis.com/v1beta3/projects/{projectId}/logServices",
+			"GET",
+		)
+	)
 	return [service['name'] for service in json.loads(content)['logServices']]

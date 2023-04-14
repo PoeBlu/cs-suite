@@ -5,7 +5,7 @@ import add_finding
 from tinydb import TinyDB, Query
 
 def rules(projectId):
-	db = TinyDB("project_dbs/" + projectId + ".json")
+	db = TinyDB(f"project_dbs/{projectId}.json")
 	class Rule:
 		def __init__(self, rule_title, category, filter_func):
 			try:

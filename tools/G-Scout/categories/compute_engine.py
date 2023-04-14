@@ -35,12 +35,9 @@ def insert_instance_groups(projectId, db):
 		pass
 
 def get_zones(projectId):
-	results = []
 	request = zones.list(project=projectId)
 	response = request.execute()['items']
-	for result in response:
-		results.append(result['name'])
-	return results
+	return [result['name'] for result in response]
 
 # Function to pass Tinydb for the update query
 def add_member(member):

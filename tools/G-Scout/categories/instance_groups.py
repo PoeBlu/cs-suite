@@ -38,10 +38,7 @@ def insert_instance_groups():
 
 def get_zones():
 	projectId = TinyDB('projects.json').table("Project").all()
-	results = []
 	request = zones.list(project=projectId)
 	response = request.execute()['items']
-	for result in response:
-		results.append(result['name'])
-	return results
+	return [result['name'] for result in response]
 

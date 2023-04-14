@@ -18,10 +18,7 @@ class Scout2Encoder(json.JSONEncoder):
     JSON encoder class
     """
     def default(self, o):
-        if type(o) == datetime.datetime:
-            return str(o)
-        else:
-            return vars(o)
+        return str(o) if type(o) == datetime.datetime else vars(o)
 
 
 
@@ -36,7 +33,11 @@ class JavaScriptReaderWriter(object):
         self.profile = profile.replace('/', '_').replace('\\', '_')  # Issue 111
         self.current_time = datetime.datetime.now(dateutil.tz.tzlocal())
         if timestamp != False:
-            self.timestamp = self.current_time.strftime("%Y-%m-%d_%Hh%M%z") if not timestamp else timestamp
+            self.timestamp = (
+                timestamp
+                if timestamp
+                else self.current_time.strftime("%Y-%m-%d_%Hh%M%z")
+            )
 
 
     def load_from_file(self, config_type, config_path = None, first_line = None):
@@ -52,11 +53,11 @@ class JavaScriptReaderWriter(object):
 
     def save_to_file(self, config, config_type, force_write, debug):
         config_path, first_line = get_filename(config_type, self.profile, self.report_dir)
-        print('Saving data to %s' % config_path)
+        print(f'Saving data to {config_path}')
         try:
             with self.__open_file(config_path, force_write, False) as f:
                 if first_line:
-                    print('%s' % first_line, file=f)
+                    print(f'{first_line}', file=f)
                 print('%s' % json.dumps(config, indent=4 if debug else None, separators=(',', ': '), sort_keys=True, cls=Scout2Encoder), file=f)
         except Exception as e:
             printException(e)
@@ -76,13 +77,12 @@ class JavaScriptReaderWriter(object):
         """
         if not quiet:
             printInfo('Saving config...')
-        if prompt_4_overwrite(config_filename, force_write):
-            try:
-                config_dirname = os.path.dirname(config_filename)
-                if not os.path.isdir(config_dirname):
-                    os.makedirs(config_dirname)
-                return open(config_filename, 'wt')
-            except Exception as e:
-                printException(e)
-        else:
+        if not prompt_4_overwrite(config_filename, force_write):
             return None
+        try:
+            config_dirname = os.path.dirname(config_filename)
+            if not os.path.isdir(config_dirname):
+                os.makedirs(config_dirname)
+            return open(config_filename, 'wt')
+        except Exception as e:
+            printException(e)

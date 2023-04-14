@@ -48,5 +48,5 @@ def main():
     # Open the HTML ruleset generator in a browser
     if not args.no_browser:
         printInfo('Starting the HTML ruleset generator...')
-        url = 'file://%s' % os.path.abspath(ruleset_generator_path)
+        url = f'file://{os.path.abspath(ruleset_generator_path)}'
         webbrowser.open(url, new=2)

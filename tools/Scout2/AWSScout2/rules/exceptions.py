@@ -21,12 +21,15 @@ class RuleExceptions(object):
     def process(self, aws_config):
         for service in self.exceptions:
             for rule in self.exceptions[service]:
-                filtered_items = []
                 if rule not in aws_config['services'][service]['findings']:
                     printDebug('Warning:: key error should not be happening')
                     continue
-                for item in aws_config['services'][service]['findings'][rule]['items']:
-                    if item not in self.exceptions[service][rule]:
-                        filtered_items.append(item)
+                filtered_items = [
+                    item
+                    for item in aws_config['services'][service]['findings'][rule][
+                        'items'
+                    ]
+                    if item not in self.exceptions[service][rule]
+                ]
                 aws_config['services'][service]['findings'][rule]['items'] = filtered_items
                 aws_config['services'][service]['findings'][rule]['flagged_items'] = len(aws_config['services'][service]['findings'][rule]['items'])

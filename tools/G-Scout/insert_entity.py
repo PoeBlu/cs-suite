@@ -4,12 +4,12 @@ from oauth2client.file import Storage
 storage = Storage('creds.data')
 
 def insert_entity(projectId,product, categories, table_name, version="v1",prefix="",items="items"):
-	db = TinyDB("project_dbs/" + projectId + ".json")
-        service = discovery.build(product, version, credentials=storage.get())
-        while categories:
-                api_entity = getattr(service, categories.pop(0))()
-                service = api_entity
-        request = api_entity.list(project=prefix+projectId)
+	db = TinyDB(f"project_dbs/{projectId}.json")
+	service = discovery.build(product, version, credentials=storage.get())
+	while categories:
+	        api_entity = getattr(service, categories.pop(0))()
+	        service = api_entity
+	request = api_entity.list(project=prefix+projectId)
 	try:
 		while request is not None:
 			response = request.execute()

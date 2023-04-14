@@ -129,10 +129,9 @@ def add_security_group_name_to_ec2_grants_callback(ec2_config, current_config, p
             target = current_path[:(current_path.index('vpcs') + 1)]
             target.append(ec2_grant['VpcId'])
             target.append('security_groups')
-            target.append(sg_id)
         else:
             target = current_path[:(current_path.index('security_groups') + 1)]
-            target.append(sg_id)
+        target.append(sg_id)
         ec2_grant['GroupName'] = get_value_at(ec2_config, target, 'name')
 
 
@@ -153,8 +152,12 @@ def process_cloudtrail_trails(cloudtrail_config):
                 data_logging_trails_count += 1
 
     cloudtrail_config['data_logging_trails_count'] = data_logging_trails_count
-    cloudtrail_config['IncludeGlobalServiceEvents'] = False if (len(global_events_logging) == 0) else True
-    cloudtrail_config['DuplicatedGlobalServiceEvents'] = True if (len(global_events_logging) > 1) else False
+    cloudtrail_config['IncludeGlobalServiceEvents'] = (
+        len(global_events_logging) != 0
+    )
+    cloudtrail_config['DuplicatedGlobalServiceEvents'] = (
+        len(global_events_logging) > 1
+    )
 
 
 def process_network_acls_callback(vpc_config, current_config, path, current_path, privateip_id, callback_args):
@@ -167,23 +170,23 @@ def process_network_acls_callback(vpc_config, current_config, path, current_path
 
 
 def process_network_acls_check_for_allow_all(network_acl, direction):
-    network_acl['allow_all_%s_traffic' % direction] = 0
+    network_acl[f'allow_all_{direction}_traffic'] = 0
     for rule_number in network_acl['rules'][direction]:
         rule = network_acl['rules'][direction][rule_number]
         if rule['RuleAction'] == 'deny':
             # If a deny rule appears before an allow all, do not raise the flag
             break
         if (rule['CidrBlock'] == '0.0.0.0/0') and (rule['RuleAction'] == 'allow') and (rule['port_range'] == '1-65535') and (rule['protocol'] == 'ALL'):
-                network_acl['allow_all_%s_traffic' % direction] = rule_number
-                break
+            network_acl[f'allow_all_{direction}_traffic'] = rule_number
+            break
 
 
 def process_network_acls_check_for_aws_default(network_acl, direction):
-    if len(network_acl['rules'][direction]) == 2 and int(network_acl['allow_all_%s_traffic' % direction]) > 0 and '100' in network_acl['rules'][direction]:
-        # Assume it is AWS' default rules because there are 2 rules (100 and 65535) and the first rule allows all traffic
-        network_acl['use_default_%s_rules' % direction] = True
-    else:
-        network_acl['use_default_%s_rules' % direction] = False
+    network_acl[f'use_default_{direction}_rules'] = (
+        len(network_acl['rules'][direction]) == 2
+        and int(network_acl[f'allow_all_{direction}_traffic']) > 0
+        and '100' in network_acl['rules'][direction]
+    )
 
 
 
@@ -241,10 +244,7 @@ def match_iam_policies_and_buckets(aws_config):
                                             __update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam_entity, full_path, policy_type, policy)
 
 def __update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_iam_entity, full_path, policy_type, policy_name):
-    allowed_buckets = []
-    # By default, all buckets are allowed
-    for bucket_name in s3_info['buckets']:
-        allowed_buckets.append(bucket_name)
+    allowed_buckets = list(s3_info['buckets'])
     if policy_type == 'InlinePolicies':
         policy = iam_info[iam_entity.title()][allowed_iam_entity]['Policies'][policy_name]['PolicyDocument']
     elif policy_type == 'ManagedPolicies':
@@ -256,13 +256,12 @@ def __update_bucket_permissions(s3_info, iam_info, action, iam_entity, allowed_i
             parts = target_path.split('/')
             bucket_name = parts[0].split(':')[-1]
             path = '/' + '/'.join(parts[1:]) if len(parts) > 1 else '/'
-            if (path == '/' or path == '/*') and (bucket_name in allowed_buckets):
+            if path in ['/', '/*'] and bucket_name in allowed_buckets:
                 # Remove bucket from list
                 allowed_buckets.remove(bucket_name)
             elif bucket_name == '*':
                 allowed_buckets = []
-    policy_info = {}
-    policy_info[policy_type] = {}
+    policy_info = {policy_type: {}}
     policy_info[policy_type][policy_name] = iam_info['permissions']['Action'][action][iam_entity]['Allow'][allowed_iam_entity]['NotResource'][full_path][policy_type][policy_name]
     for bucket_name in allowed_buckets:
         __update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entity, policy_info)
@@ -271,10 +270,10 @@ def __update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entit
     if bucket_name != '*' and bucket_name in s3_info['buckets']:
         bucket = s3_info['buckets'][bucket_name]
         manage_dictionary(bucket, iam_entity, {})
-        manage_dictionary(bucket, iam_entity + '_count', 0)
-        if not allowed_iam_entity in bucket[iam_entity]:
+        manage_dictionary(bucket, f'{iam_entity}_count', 0)
+        if allowed_iam_entity not in bucket[iam_entity]:
             bucket[iam_entity][allowed_iam_entity] = {}
-            bucket[iam_entity + '_count'] = bucket[iam_entity + '_count'] + 1
+            bucket[f'{iam_entity}_count'] = bucket[f'{iam_entity}_count'] + 1
 
         if 'inline_policies' in policy_info:
             manage_dictionary(bucket[iam_entity][allowed_iam_entity], 'inline_policies', {})
@@ -285,10 +284,6 @@ def __update_iam_permissions(s3_info, bucket_name, iam_entity, allowed_iam_entit
     elif bucket_name == '*':
         for bucket in s3_info['buckets']:
             __update_iam_permissions(s3_info, bucket, iam_entity, allowed_iam_entity, policy_info)
-        pass
-    else:
-        # Could be an error or cross-account access, ignore...
-        pass
 
 
 def match_network_acls_and_subnets_callback(vpc_config, current_config, path, current_path, acl_id, callback_args):
@@ -383,7 +378,7 @@ def match_security_groups_and_resources_callback(aws_config, current_config, pat
     service = current_path[1]
     original_resource_path = combine_paths(copy.deepcopy(current_path), [ resource_id ])
     resource = get_object_at(aws_config, original_resource_path)
-    if not 'resource_id_path' in callback_args:
+    if 'resource_id_path' not in callback_args:
         resource_type = current_path[-1]
         resource_path = copy.deepcopy(current_path)
         resource_path.append(resource_id)
@@ -396,7 +391,7 @@ def match_security_groups_and_resources_callback(aws_config, current_config, pat
         resource_status = get_object_at(aws_config, status_path).replace('.', '_')
     else:
         resource_status = None
-    unknown_vpc_id = True if current_path[4] != 'vpcs' else False
+    unknown_vpc_id = current_path[4] != 'vpcs'
     # Issue 89 & 91 : can instances have no security group?
     try:
         try:
@@ -412,11 +407,11 @@ def match_security_groups_and_resources_callback(aws_config, current_config, pat
                 sg_id = resource_sg
             if unknown_vpc_id:
                 vpc_id = sg_map[sg_id]['vpc_id']
-                sg_base_path = copy.deepcopy(current_path[0:4])
+                sg_base_path = copy.deepcopy(current_path[:4])
                 sg_base_path[1] = 'ec2'
                 sg_base_path = sg_base_path + [ 'vpcs', vpc_id, 'security_groups' ]
             else:
-                sg_base_path = copy.deepcopy(current_path[0:6])
+                sg_base_path = copy.deepcopy(current_path[:6])
                 sg_base_path[1] = 'ec2'
                 sg_base_path.append('security_groups')
             sg_path = copy.deepcopy(sg_base_path)
@@ -429,17 +424,20 @@ def match_security_groups_and_resources_callback(aws_config, current_config, pat
             manage_dictionary(sg['used_by'][service]['resource_type'], resource_type, {} if resource_status else [])
             if resource_status:
                 manage_dictionary(sg['used_by'][service]['resource_type'][resource_type], resource_status, [])
-                if not resource_id in sg['used_by'][service]['resource_type'][resource_type][resource_status]:
+                if (
+                    resource_id
+                    not in sg['used_by'][service]['resource_type'][
+                        resource_type
+                    ][resource_status]
+                ):
                     sg['used_by'][service]['resource_type'][resource_type][resource_status].append(resource_id)
             else:
                 sg['used_by'][service]['resource_type'][resource_type].append(resource_id)
     except Exception as e:
         region = current_path[3]
         vpc_id = current_path[5]
-        if vpc_id == ec2_classic and resource_type == 'elbs':
-            pass
-        else:
-            printError('Failed to parse %s in %s in %s' % (resource_type, vpc_id, region))
+        if vpc_id != ec2_classic or resource_type != 'elbs':
+            printError(f'Failed to parse {resource_type} in {vpc_id} in {region}')
             printException(e)
 
 
@@ -470,7 +468,7 @@ def set_emr_vpc_ids_callback(aws_config, current_config, path, current_path, vpc
         elif 'RequestedEc2SubnetIds' in cluster['Ec2InstanceAttributes']:
             subnet_id = cluster['Ec2InstanceAttributes']['RequestedEc2SubnetIds']
         else:
-            printError('Unable to determine VPC id for EMR cluster %s' % str(cluster_id))
+            printError(f'Unable to determine VPC id for EMR cluster {str(cluster_id)}')
             continue
         if sg_id in sg_map:
             vpc_id = sg_map[sg_id]['vpc_id']
@@ -484,7 +482,9 @@ def set_emr_vpc_ids_callback(aws_config, current_config, path, current_path, vpc
                         pop_list.append(cluster_id)
                         sid_found = True
             if not sid_found:
-                printError('Unable to determine VPC id for %s' % (str(subnet_id) if subnet_id else str(sg_id)))
+                printError(
+                    f'Unable to determine VPC id for {str(subnet_id) if subnet_id else str(sg_id)}'
+                )
                 continue
         if vpc_id:
             region_vpcs_config = get_object_at(aws_config, current_path)
@@ -540,11 +540,13 @@ def parse_elb_policies_callback(aws_config, current_config, path, current_path, 
 def sort_vpc_flow_logs_callback(vpc_config, current_config, path, current_path, flow_log_id, callback_args):
     attached_resource = current_config['ResourceId']
     if attached_resource.startswith('vpc-'):
-        vpc_path = combine_paths(current_path[0:2], ['vpcs', attached_resource])
+        vpc_path = combine_paths(current_path[:2], ['vpcs', attached_resource])
         try:
             attached_vpc = get_object_at(vpc_config, vpc_path)
         except Exception as e:
-            printDebug('It appears that the flow log %s is attached to a resource that was previously deleted (%s).' % (flow_log_id, attached_resource))
+            printDebug(
+                f'It appears that the flow log {flow_log_id} is attached to a resource that was previously deleted ({attached_resource}).'
+            )
             return
         manage_dictionary(attached_vpc, 'flow_logs', [])
         if flow_log_id not in attached_vpc['flow_logs']:
@@ -554,7 +556,7 @@ def sort_vpc_flow_logs_callback(vpc_config, current_config, path, current_path, 
             if flow_log_id not in attached_vpc['subnets'][subnet_id]['flow_logs']:
                 attached_vpc['subnets'][subnet_id]['flow_logs'].append(flow_log_id)
     elif attached_resource.startswith('subnet-'):
-        all_vpcs = get_object_at(vpc_config, combine_paths(current_path[0:2], ['vpcs']))
+        all_vpcs = get_object_at(vpc_config, combine_paths(current_path[:2], ['vpcs']))
         for vpc in all_vpcs:
             if attached_resource in all_vpcs[vpc]['subnets']:
                 manage_dictionary(all_vpcs[vpc]['subnets'][attached_resource], 'flow_logs', [])
@@ -562,7 +564,9 @@ def sort_vpc_flow_logs_callback(vpc_config, current_config, path, current_path, 
                     all_vpcs[vpc]['subnets'][attached_resource]['flow_logs'].append(flow_log_id)
                 break
     else:
-        printError('Resource %s attached to flow logs is not handled' % attached_resource)
+        printError(
+            f'Resource {attached_resource} attached to flow logs is not handled'
+        )
 
 
 def go_to_and_do(aws_config, current_config, path, current_path, callback, callback_args = None):
@@ -612,11 +616,11 @@ def go_to_and_do(aws_config, current_config, path, current_path, callback, callb
     except Exception as e:
         printException(e)
         if i:
-            printInfo('Index: %s' % str(i))
-        printInfo('Path: %s' % str(current_path))
-        printInfo('Key = %s' % str(key))
-        printInfo('Value = %s' % str(value))
-        printInfo('Path = %s' % path)
+            printInfo(f'Index: {str(i)}')
+        printInfo(f'Path: {str(current_path)}')
+        printInfo(f'Key = {str(key)}')
+        printInfo(f'Value = {str(value)}')
+        printInfo(f'Path = {path}')
 
 
 def new_go_to_and_do(aws_config, current_config, path, current_path, callbacks):
@@ -631,46 +635,46 @@ def new_go_to_and_do(aws_config, current_config, path, current_path, callbacks):
     :return:
     """
     try:
-            key = path.pop(0)
-            if not current_config:
-                current_config = aws_config
-            if not current_path:
-                current_path = []
-            keys = key.split('.')
-            if len(keys) > 1:
-                while True:
-                    key = keys.pop(0)
-                    if not len(keys):
-                        break
-                    current_path.append(key)
-                    current_config = current_config[key]
-            if key in current_config:
+        key = path.pop(0)
+        if not current_config:
+            current_config = aws_config
+        if not current_path:
+            current_path = []
+        keys = key.split('.')
+        if len(keys) > 1:
+            while True:
+                key = keys.pop(0)
+                if not len(keys):
+                    break
                 current_path.append(key)
-                for (i, value) in enumerate(list(current_config[key])):
-                    if len(path) == 0:
-                        for callback_info in callbacks:
-                            callback_name = callback_info[0]
-                            callback = globals()[callback_name]
-                            callback_args = callback_info[1]
-                            if type(current_config[key] == dict) and type(value) != dict and type(value) != list:
-                                callback(aws_config, current_config[key][value], path, current_path, value, callback_args)
-                            else:
-                                callback(aws_config, current_config, path, current_path, value, callback_args)
-                    else:
-                        tmp = copy.deepcopy(current_path)
-                        try:
-                            tmp.append(value)
-                            new_go_to_and_do(aws_config, current_config[key][value], copy.deepcopy(path), tmp, callbacks)
-                        except:
-                            tmp.pop()
-                            tmp.append(i)
-                            new_go_to_and_do(aws_config, current_config[key][i], copy.deepcopy(path), tmp, callbacks)
+                current_config = current_config[key]
+        if key in current_config:
+            current_path.append(key)
+            for (i, value) in enumerate(list(current_config[key])):
+                if len(path) == 0:
+                    for callback_info in callbacks:
+                        callback_name = callback_info[0]
+                        callback = globals()[callback_name]
+                        callback_args = callback_info[1]
+                        if type(current_config[key] == dict) and type(value) != dict and type(value) != list:
+                            callback(aws_config, current_config[key][value], path, current_path, value, callback_args)
+                        else:
+                            callback(aws_config, current_config, path, current_path, value, callback_args)
+                else:
+                    tmp = copy.deepcopy(current_path)
+                    try:
+                        tmp.append(value)
+                        new_go_to_and_do(aws_config, current_config[key][value], copy.deepcopy(path), tmp, callbacks)
+                    except:
+                        tmp.pop()
+                        tmp.append(i)
+                        new_go_to_and_do(aws_config, current_config[key][i], copy.deepcopy(path), tmp, callbacks)
     except Exception as e:
-            printException(e)
-            printInfo('Path: %s' % str(current_path))
-            printInfo('Key = %s' % str(key))
-            printInfo('Value = %s' % str(value))
-            printInfo('Path = %s' % path)
+        printException(e)
+        printInfo(f'Path: {str(current_path)}')
+        printInfo(f'Key = {str(key)}')
+        printInfo(f'Value = {str(value)}')
+        printInfo(f'Path = {path}')
 
 
 
@@ -678,7 +682,11 @@ def get_db_attack_surface(aws_config, current_config, path, current_path, db_id,
     service = current_path[1]
     service_config = aws_config['services'][service]
     manage_dictionary(service_config, 'external_attack_surface', {})
-    if (service == 'redshift' or service == 'rds') and 'PubliclyAccessible' in current_config and current_config['PubliclyAccessible']:
+    if (
+        service in ['redshift', 'rds']
+        and 'PubliclyAccessible' in current_config
+        and current_config['PubliclyAccessible']
+    ):
         public_dns = current_config['Endpoint']['Address']
         listeners = [ current_config['Endpoint']['Port'] ]
         security_groups = current_config['VpcSecurityGroups']
@@ -708,9 +716,7 @@ def get_lb_attack_surface(aws_config, current_config, path, current_path, elb_id
         vpc_id = current_path[5]
         elb_config['external_attack_surface'][public_dns] = {'protocols': {}}
         security_groups = [g['GroupId'] for g in current_config['security_groups']]
-        listeners = []
-        for listener in current_config['listeners']:
-            listeners.append(listener)
+        listeners = list(current_config['listeners'])
         security_group_to_attack_surface(aws_config, elb_config['external_attack_surface'], public_dns, current_path, security_groups, listeners)
     elif current_config['Scheme'] == 'internet-facing':
         # Classic ELbs do not have a security group, lookup listeners instead
@@ -723,32 +729,32 @@ def get_lb_attack_surface(aws_config, current_config, path, current_path, elb_id
 
 
 def security_group_to_attack_surface(aws_config, attack_surface_config, public_ip, current_path, security_groups, listeners = []):
-        manage_dictionary(attack_surface_config, public_ip, {'protocols': {}})
-        for sg_id in security_groups:
-            sg_path = copy.deepcopy(current_path[0:6])
-            sg_path[1] = 'ec2'
-            sg_path.append('security_groups')
-            sg_path.append(sg_id)
-            sg_path.append('rules')
-            sg_path.append('ingress')
-            ingress_rules = get_object_at(aws_config, sg_path)
-            public_ip_grants = {}
-            for p in ingress_rules['protocols']:
-                for port in ingress_rules['protocols'][p]['ports']:
-                  if len(listeners) == 0 and 'cidrs' in ingress_rules['protocols'][p]['ports'][port]:
-                      manage_dictionary(attack_surface_config[public_ip]['protocols'], p, {'ports': {}})
-                      manage_dictionary(attack_surface_config[public_ip]['protocols'][p]['ports'], port, {'cidrs': []})
-                      attack_surface_config[public_ip]['protocols'][p]['ports'][port]['cidrs'] += ingress_rules['protocols'][p]['ports'][port]['cidrs']
-                  else:
-                    ports = port.split('-')
-                    if len(ports) > 1:
-                        port_min = int(ports[0])
-                        port_max = int(ports[1])
-                    else:
-                        port_min = port_max = port
-                    for listener in listeners:
-                        listener = int(listener)
-                        if listener > port_min and listener < port_max and 'cidrs' in ingress_rules['protocols'][p]['ports'][port]:
-                            manage_dictionary(attack_surface_config[public_ip]['protocols'], p, {'ports': {}})
-                            manage_dictionary(attack_surface_config[public_ip]['protocols'][p]['ports'], str(listener), {'cidrs': []})
-                            attack_surface_config[public_ip]['protocols'][p]['ports'][str(listener)]['cidrs'] += ingress_rules['protocols'][p]['ports'][port]['cidrs']
+    manage_dictionary(attack_surface_config, public_ip, {'protocols': {}})
+    for sg_id in security_groups:
+        sg_path = copy.deepcopy(current_path[:6])
+        sg_path[1] = 'ec2'
+        sg_path.append('security_groups')
+        sg_path.append(sg_id)
+        sg_path.append('rules')
+        sg_path.append('ingress')
+        ingress_rules = get_object_at(aws_config, sg_path)
+        public_ip_grants = {}
+        for p in ingress_rules['protocols']:
+            for port in ingress_rules['protocols'][p]['ports']:
+              if len(listeners) == 0 and 'cidrs' in ingress_rules['protocols'][p]['ports'][port]:
+                  manage_dictionary(attack_surface_config[public_ip]['protocols'], p, {'ports': {}})
+                  manage_dictionary(attack_surface_config[public_ip]['protocols'][p]['ports'], port, {'cidrs': []})
+                  attack_surface_config[public_ip]['protocols'][p]['ports'][port]['cidrs'] += ingress_rules['protocols'][p]['ports'][port]['cidrs']
+              else:
+                ports = port.split('-')
+                if len(ports) > 1:
+                    port_min = int(ports[0])
+                    port_max = int(ports[1])
+                else:
+                    port_min = port_max = port
+                for listener in listeners:
+                    listener = int(listener)
+                    if listener > port_min and listener < port_max and 'cidrs' in ingress_rules['protocols'][p]['ports'][port]:
+                        manage_dictionary(attack_surface_config[public_ip]['protocols'], p, {'ports': {}})
+                        manage_dictionary(attack_surface_config[public_ip]['protocols'][p]['ports'], str(listener), {'cidrs': []})
+                        attack_surface_config[public_ip]['protocols'][p]['ports'][str(listener)]['cidrs'] += ingress_rules['protocols'][p]['ports'][port]['cidrs']

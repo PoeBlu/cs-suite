@@ -9,11 +9,36 @@ import subprocess
 epoch=int(time.time())
 account=subprocess.check_output(['aws', 'sts', 'get-caller-identity', '--output', 'text', '--query', 'Account'])
 account=account.strip()
-certs = subprocess.check_output(['aws', 'iam', 'list-server-certificates', '--region', 'us-east-1', '--query', 'ServerCertificateMetadataList[].ServerCertificateName', '--output', 'text'])
-if  certs:
+if certs := subprocess.check_output(
+    [
+        'aws',
+        'iam',
+        'list-server-certificates',
+        '--region',
+        'us-east-1',
+        '--query',
+        'ServerCertificateMetadataList[].ServerCertificateName',
+        '--output',
+        'text',
+    ]
+):
     for cert in certs.split('\t'):
         cert=str(cert).strip()
-        expire_date=subprocess.check_output(['aws', 'iam','--region','us-east-1',  'get-server-certificate', '--server-certificate-name', '%s'%(cert), '--query', 'ServerCertificate.ServerCertificateMetadata.Expiration', '--output', 'text']).strip()
+        expire_date = subprocess.check_output(
+            [
+                'aws',
+                'iam',
+                '--region',
+                'us-east-1',
+                'get-server-certificate',
+                '--server-certificate-name',
+                f'{cert}',
+                '--query',
+                'ServerCertificate.ServerCertificateMetadata.Expiration',
+                '--output',
+                'text',
+            ]
+        ).strip()
         expire_time=time.mktime(time.strptime(expire_date,'%Y-%m-%dT%H:%M:%SZ'))
         epoch=int(time.time())
         if epoch > expire_time:

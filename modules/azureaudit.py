@@ -45,8 +45,8 @@ def json_to_html(file, new_file):
                  f.write(line)
 
 def merge_json():
-    with open("reports/AZURE/%s/%s/final_report/final.json" %(account_name, timestmp), "w") as f:
-        for file in glob.glob("reports/AZURE/%s/%s/*.json" % (account_name, timestmp)):
+    with open(f"reports/AZURE/{account_name}/{timestmp}/final_report/final.json", "w") as f:
+        for file in glob.glob(f"reports/AZURE/{account_name}/{timestmp}/*.json"):
             with open(file, "r") as infile:
                 for line in infile:
                     f.write(line)
@@ -55,8 +55,7 @@ def merge_json():
 def no_guest_user():
     """ The response is empty,need to dig in further """ 
     guest_user_list = subprocess.check_output(['az ad user list --query "[?additionalProperties.userType==\'Guest\']"'], shell=True)
-    result = {}
-    result['check'] = 'NO_GUEST_USER'
+    result = {'check': 'NO_GUEST_USER'}
     with open('azure_output.json', 'w') as f:
         f.write(guest_user_list)
 
@@ -1464,7 +1463,7 @@ def persistent_json(json_file):
             checks.append(j['check'])
     checks = set(checks)
     dict = {}
-    with open('reports/AZURE/%s/%s/final_diff.json' % (account_name, timestmp), 'w') as g:
+    with open(f'reports/AZURE/{account_name}/{timestmp}/final_diff.json', 'w') as g:
         for check in checks:
             dict = {}
             data = []
@@ -1480,7 +1479,7 @@ def persistent_json(json_file):
 
 
 def persis(j1,j2):
-    f=open("./reports/AZURE/%s/%s/diff.json" %(account_name, timestmp), "a+")
+    f = open(f"./reports/AZURE/{account_name}/{timestmp}/diff.json", "a+")
     for data1 in j1['data']:
         for data2 in j2['data']:
             if data1==data2:
@@ -1489,11 +1488,11 @@ def persis(j1,j2):
                 if pers['type'] == 'WARNING':
                     pers['check'] = j1['check']
                     f.write("%s\n" % json.dumps(pers))
-    persistent_json("./reports/AZURE/%s/%s/diff.json" %(account_name, timestmp))
+    persistent_json(f"./reports/AZURE/{account_name}/{timestmp}/diff.json")
 
 
 def persistent(latest, last):
-    with open("reports/AZURE/%s/%s/diff.json" %(account_name, timestmp), "a+") as h:
+    with open(f"reports/AZURE/{account_name}/{timestmp}/diff.json", "a+") as h:
         with open(latest, 'r') as f:
             for line1 in f:
                 data1 = json.loads(line1)
@@ -1502,13 +1501,15 @@ def persistent(latest, last):
                         for line2 in g:
                             data2 = json.loads(line2)
                             for k in data2['data']:
-                                if data1['check'] == data2['check']:
-                                    if i==k:
-                                        if i['type'] == "WARNING":
-                                            i['check'] = data1['check']
-                                            h.write("%s\n" % json.dumps(i))
-                                            
-    persistent_json("./reports/AZURE/%s/%s/diff.json" %(account_name, timestmp)) 
+                                if (
+                                    data1['check'] == data2['check']
+                                    and i == k
+                                    and i['type'] == "WARNING"
+                                ):
+                                    i['check'] = data1['check']
+                                    h.write("%s\n" % json.dumps(i))
+
+    persistent_json(f"./reports/AZURE/{account_name}/{timestmp}/diff.json") 
 
 
 def persistent_files():
@@ -1527,7 +1528,13 @@ def persistent_files():
 
 
 def azure_audit():
-    subprocess.call(['mkdir', '-p', 'reports/AZURE/%s/%s/final_report' % (account_name, timestmp)])
+    subprocess.call(
+        [
+            'mkdir',
+            '-p',
+            f'reports/AZURE/{account_name}/{timestmp}/final_report',
+        ]
+    )
     automatic_provising_agent()
     system_update()
     security_configuration()
@@ -1578,28 +1585,51 @@ def azure_audit():
     approved_extension()
     vault_key()
     vault_secret()
-    json_to_html('./reports/AZURE/%s/%s/security_center.json' %(account_name, timestmp),
-                        './reports/AZURE/%s/%s/final_report/security_center.html' %(account_name, timestmp))
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/security_center.json',
+        f'./reports/AZURE/{account_name}/{timestmp}/final_report/security_center.html',
+    )
 
-    json_to_html('./reports/AZURE/%s/%s/storage_account.json' % (account_name, timestmp),
-                        './reports/AZURE/%s/%s/final_report/storage_account.html' % (account_name, timestmp))
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/storage_account.json',
+        f'./reports/AZURE/{account_name}/{timestmp}/final_report/storage_account.html',
+    )
 
-    json_to_html('./reports/AZURE/%s/%s/logging_monitoring.json' % (account_name, timestmp),
-                        'reports/AZURE/%s/%s/final_report/logging_monitoring.html' % (account_name, timestmp))
-    json_to_html('./reports/AZURE/%s/%s/network.json' % (account_name, timestmp),
-                 'reports/AZURE/%s/%s/final_report/network.html' % (account_name, timestmp))
-    json_to_html('./reports/AZURE/%s/%s/vm.json' % (account_name, timestmp),
-                 'reports/AZURE/%s/%s/final_report/vm.html' % (account_name, timestmp))
-    json_to_html('./reports/AZURE/%s/%s/vault.json' % (account_name, timestmp),
-                 'reports/AZURE/%s/%s/final_report/vault.html' % (account_name, timestmp))
-    json_to_html('./reports/AZURE/%s/%s/sql_db.json' % (account_name, timestmp),
-                 'reports/AZURE/%s/%s/final_report/sql_db.html' % (account_name, timestmp))
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/logging_monitoring.json',
+        f'reports/AZURE/{account_name}/{timestmp}/final_report/logging_monitoring.html',
+    )
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/network.json',
+        f'reports/AZURE/{account_name}/{timestmp}/final_report/network.html',
+    )
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/vm.json',
+        f'reports/AZURE/{account_name}/{timestmp}/final_report/vm.html',
+    )
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/vault.json',
+        f'reports/AZURE/{account_name}/{timestmp}/final_report/vault.html',
+    )
+    json_to_html(
+        f'./reports/AZURE/{account_name}/{timestmp}/sql_db.json',
+        f'reports/AZURE/{account_name}/{timestmp}/final_report/sql_db.html',
+    )
     merge_json()
     persistent_files()
     subprocess.check_output(
-        ['cp -R ./tools/template/* ./reports/AZURE/%s/%s/final_report/' % (account_name, timestmp)], shell=True)
-    subprocess.check_output(['rm ./reports/AZURE/%s/%s/final_report/report.html' %(account_name, timestmp)], shell=True)
+        [
+            f'cp -R ./tools/template/* ./reports/AZURE/{account_name}/{timestmp}/final_report/'
+        ],
+        shell=True,
+    )
+    subprocess.check_output(
+        [
+            f'rm ./reports/AZURE/{account_name}/{timestmp}/final_report/report.html'
+        ],
+        shell=True,
+    )
     webbrowser.open('file://' + os.path.realpath("./reports/AZURE/%s/%s/final_report/report_azure.html")
                     % (account_name, timestmp))
     fin = os.path.realpath("./reports/AZURE/%s/%s/final_report/report_azure.html") % (account_name, timestmp)
-    print ("THE FINAL REPORT IS LOCATED AT -------->  %s" % (fin))
+    print(f"THE FINAL REPORT IS LOCATED AT -------->  {fin}")

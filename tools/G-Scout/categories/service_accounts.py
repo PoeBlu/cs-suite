@@ -6,7 +6,14 @@ from httplib2 import Http
 from tinydb import TinyDB, Query
 
 def insert_service_accounts(projectId, db):
-	resp, content = storage.get().authorize(Http()).request("https://iam.googleapis.com/v1/projects/"+ projectId +"/serviceAccounts/","GET")
+	resp, content = (
+		storage.get()
+		.authorize(Http())
+		.request(
+			f"https://iam.googleapis.com/v1/projects/{projectId}/serviceAccounts/",
+			"GET",
+		)
+	)
 	for account in json.loads(content)['accounts']:
 		db.table("Service Account").insert(account)
 

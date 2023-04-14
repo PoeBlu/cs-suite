@@ -25,8 +25,12 @@ class HTMLReport(object):
         self.profile = profile.replace('/', '_').replace('\\', '_') # Issue 111
         self.current_time = datetime.datetime.now(dateutil.tz.tzlocal())
         if timestamp != False:
-            self.timestamp = self.current_time.strftime("%Y-%m-%d_%Hh%M%z") if not timestamp else timestamp
-            self.profile = '%s-%s' % (self.profile, self.timestamp)
+            self.timestamp = (
+                timestamp
+                if timestamp
+                else self.current_time.strftime("%Y-%m-%d_%Hh%M%z")
+            )
+            self.profile = f'{self.profile}-{self.timestamp}'
         self.exceptions = exceptions
         self.scout2_report_data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
         self.html_data_path = os.path.join(self.scout2_report_data_path, 'html')
@@ -37,7 +41,7 @@ class HTMLReport(object):
         template_dir  = os.path.join(self.html_data_path, templates_type)
         template_files = [os.path.join(template_dir, f) for f in os.listdir(template_dir) if os.path.isfile(os.path.join(template_dir, f))]
         for filename in template_files:
-            with open('%s' % filename, 'rt') as f:
+            with open(f'{filename}', 'rt') as f:
                 contents = contents + f.read()
         return contents
 
@@ -83,17 +87,17 @@ class Scout2Report(HTMLReport):
         # Use all scripts under html/summaries/
         contents += self.get_content_from('summaries')
         new_file, first_line = get_filename(HTMLREPORT, self.profile, self.report_dir)
-        printInfo('Creating %s ...' % new_file)
+        printInfo(f'Creating {new_file} ...')
         if prompt_4_overwrite(new_file, force_write):
             if os.path.exists(new_file):
                 os.remove(new_file)
             with open(os.path.join(self.html_data_path, self.html_root)) as f:
                 with open(new_file, 'wt') as nf:
                     for line in f:
-                        newline = line.replace(REPORT_TITLE, REPORT_TITLE + ' [' + self.profile + ']')
+                        newline = line.replace(REPORT_TITLE, f'{REPORT_TITLE} [{self.profile}]')
                         if self.profile != 'default':
-                            new_config_filename = AWSCONFIG_FILE.replace('.js', '-%s.js' % self.profile)
-                            new_exceptions_filename = EXCEPTIONS_FILE.replace('.js', '-%s.js' % self.profile)
+                            new_config_filename = AWSCONFIG_FILE.replace('.js', f'-{self.profile}.js')
+                            new_exceptions_filename = EXCEPTIONS_FILE.replace('.js', f'-{self.profile}.js')
                             newline = newline.replace(AWSCONFIG_FILE, new_config_filename)
                             newline = newline.replace(EXCEPTIONS_FILE, new_exceptions_filename)
                         newline = newline.replace('<!-- PLACEHOLDER -->', contents)

@@ -15,7 +15,7 @@ class TestScout2Class:
     def setUpClass(cls):
         configPrintException(True)
         creds = read_creds_from_environment_variables()
-        cls.profile_name = 'travislike' if creds['AccessKeyId'] == None else None
+        cls.profile_name = 'travislike' if creds['AccessKeyId'] is None else None
         cls.has_run_scout2 = False
 
     def call_scout2(self, args):

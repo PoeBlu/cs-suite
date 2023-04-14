@@ -53,11 +53,12 @@ class EC2RegionConfig(RegionConfig):
         :param instance:                 Cluster
         """
         for i in reservation['Instances']:
-            instance = {}
             vpc_id = i['VpcId'] if 'VpcId' in i and i['VpcId'] else ec2_classic
             manage_dictionary(self.vpcs, vpc_id, VPCConfig(self.vpc_resource_types))
-            instance['reservation_id'] = reservation['ReservationId']
-            instance['id'] = i['InstanceId']
+            instance = {
+                'reservation_id': reservation['ReservationId'],
+                'id': i['InstanceId'],
+            }
             get_name(i, instance, 'InstanceId')
             get_keys(i, instance, ['KeyName', 'LaunchTime', 'InstanceType', 'State', 'IamInstanceProfile', 'SubnetId'])
             # Network interfaces & security groups
@@ -79,12 +80,13 @@ class EC2RegionConfig(RegionConfig):
         """
         vpc_id = group['VpcId'] if 'VpcId' in group and group['VpcId'] else ec2_classic
         manage_dictionary(self.vpcs, vpc_id, VPCConfig(self.vpc_resource_types))
-        security_group = {}
-        security_group['name'] = group['GroupName']
-        security_group['id'] = group['GroupId']
-        security_group['description'] = group['Description']
-        security_group['owner_id'] = group['OwnerId']
-        security_group['rules'] = {'ingress': {}, 'egress': {}}
+        security_group = {
+            'name': group['GroupName'],
+            'id': group['GroupId'],
+            'description': group['Description'],
+            'owner_id': group['OwnerId'],
+            'rules': {'ingress': {}, 'egress': {}},
+        }
         security_group['rules']['ingress']['protocols'], security_group['rules']['ingress']['count'] = self.__parse_security_group_rules(group['IpPermissions'])
         security_group['rules']['egress']['protocols'], security_group['rules']['egress']['count'] = self.__parse_security_group_rules(group['IpPermissionsEgress'])
         self.vpcs[vpc_id].security_groups[group['GroupId']] = security_group
@@ -114,7 +116,7 @@ class EC2RegionConfig(RegionConfig):
                 elif rule['FromPort'] == rule['ToPort']:
                     port_value = str(rule['FromPort'])
                 else:
-                    port_value = '%s-%s' % (rule['FromPort'], rule['ToPort'])
+                    port_value = f"{rule['FromPort']}-{rule['ToPort']}"
             manage_dictionary(protocols[ip_protocol]['ports'], port_value, {})
             # Save grants, values are either a CIDR or an EC2 security group
             for grant in rule['UserIdGroupPairs']:
@@ -217,10 +219,9 @@ def add_security_group_name_to_ec2_grants_callback(ec2_config, current_config, p
             target = current_path[:(current_path.index('vpcs')+1)]
             target.append(ec2_grant['VpcId'])
             target.append('security_groups')
-            target.append(sg_id)
         else:
             target = current_path[:(current_path.index('security_groups')+1)]
-            target.append(sg_id)
+        target.append(sg_id)
         ec2_grant['GroupName'] = get_attribute_at(ec2_config, target, 'name')
 
 #
@@ -231,8 +232,7 @@ def check_for_elastic_ip(ec2_info):
     elastic_ips = []
     for region in ec2_info['regions']:
         if 'elastic_ips' in ec2_info['regions'][region]:
-            for eip in ec2_info['regions'][region]['elastic_ips']:
-                elastic_ips.append(eip)
+            elastic_ips.extend(iter(ec2_info['regions'][region]['elastic_ips']))
     new_items = []
     new_macro_items = []
     for i, item in enumerate(ec2_info['violations']['non-elastic-ec2-public-ip-whitelisted'].items):
@@ -255,21 +255,21 @@ def check_for_elastic_ip(ec2_info):
 #
 def link_elastic_ips(ec2_config):
     return
-    go_to_and_do(ec2_config, None, ['regions', 'elastic_ips'], None, link_elastic_ips_callback1, {})
 
 def link_elastic_ips_callback1(ec2_config, current_config, path, current_path, elastic_ip, callback_args):
-    if not 'id' in current_config:
+    if 'id' not in current_config:
         return
     instance_id = current_config['id']
     return
-    go_to_and_do(ec2_config, None, ['regions', 'vpcs', 'instances'], None, link_elastic_ips_callback2, {'instance_id': instance_id, 'elastic_ip': elastic_ip})
 
 def link_elastic_ips_callback2(ec2_config, current_config, path, current_path, instance_id, callback_args):
     if instance_id == callback_args['instance_id']:
-        if not 'PublicIpAddress' in current_config:
+        if 'PublicIpAddress' not in current_config:
             current_config['PublicIpAddress'] = callback_args['elastic_ip']
         elif current_config['PublicIpAddress'] != callback_args['elastic_ip']:
-            printInfo('Warning: public IP address exists (%s) for an instance associated with an elastic IP (%s)' % (current_config['PublicIpAddress'], callback_args['elastic_ip']))
+            printInfo(
+                f"Warning: public IP address exists ({current_config['PublicIpAddress']}) for an instance associated with an elastic IP ({callback_args['elastic_ip']})"
+            )
             # This can happen... fix it
 
 
@@ -284,7 +284,7 @@ def link_elastic_ips_callback2(ec2_config, current_config, path, current_path, i
 #
 def list_instances_in_security_groups(region_info):
     for vpc in region_info['vpcs']:
-        if not 'instances' in region_info['vpcs'][vpc]:
+        if 'instances' not in region_info['vpcs'][vpc]:
             return
         for instance in region_info['vpcs'][vpc]['instances']:
             state = region_info['vpcs'][vpc]['instances'][instance]['State']['Name']
@@ -303,7 +303,7 @@ def list_instances_in_security_groups(region_info):
 def manage_vpc(vpc_info, vpc_id):
     manage_dictionary(vpc_info, vpc_id, {})
     vpc_info[vpc_id]['id'] = vpc_id
-    if not 'name' in vpc_info[vpc_id]:
+    if 'name' not in vpc_info[vpc_id]:
         vpc_info[vpc_id]['name'] = vpc_id
 
 

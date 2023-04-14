@@ -44,10 +44,7 @@ def get_object_at(dictionary, path, attribute_name = None):
     o = dictionary
     for p in path:
         o = o[p]
-    if attribute_name:
-        return o[attribute_name]
-    else:
-        return o
+    return o[attribute_name] if attribute_name else o
 
 
 def get_value_at(all_info, current_path, key, to_string = False):
@@ -74,33 +71,30 @@ def get_value_at(all_info, current_path, key, to_string = False):
                 else:
                     target_path.append(key)
             if len(keys) > len(current_path):
-                target_path = target_path + keys[len(target_path):]
+                target_path += keys[len(target_path):]
         else:
             target_path = copy.deepcopy(current_path)
             target_path.append(key)
         target_obj = all_info
         for p in target_path:
-          try:
-            if type(target_obj) == list and type(target_obj[0]) == dict:
-                target_obj = target_obj[int(p)]
-            elif type(target_obj) == list:
-                target_obj = p
-            elif p == '':
-                target_obj = target_obj
-            else:
-              try:
-                target_obj = target_obj[p]
-              except Exception as e:
-                printError('Current path: %s' % str(current_path))
+            try:
+                if type(target_obj) == list and type(target_obj[0]) == dict:
+                    target_obj = target_obj[int(p)]
+                elif type(target_obj) == list:
+                    target_obj = p
+                elif p == '':
+                    target_obj = target_obj
+                else:
+                    try:
+                        target_obj = target_obj[p]
+                    except Exception as e:
+                        printError(f'Current path: {str(current_path)}')
+                        #print(target_obj)
+                        printException(e)
+                        raise Exception
+            except Exception as e:
+                printError(f'Current path: {str(current_path)}')
                 #print(target_obj)
                 printException(e)
                 raise Exception
-          except Exception as e:
-            printError('Current path: %s' % str(current_path))
-            #print(target_obj)
-            printException(e)
-            raise Exception
-    if to_string:
-        return str(target_obj)
-    else:
-        return target_obj
+    return str(target_obj) if to_string else target_obj

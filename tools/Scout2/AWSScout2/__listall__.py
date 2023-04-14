@@ -50,7 +50,9 @@ def main():
             services = aws_config['service_list']
         except Exception as e:
             printException(e)
-            printError('Error, failed to load the configuration for profile %s' % profile_name)
+            printError(
+                f'Error, failed to load the configuration for profile {profile_name}'
+            )
             continue
 
 
@@ -60,9 +62,7 @@ def main():
             ruleset = TmpRuleset(rule_dirs = [os.getcwd()], rule_filename = args.config, rule_args = args.config_args)
         elif len(args.path) > 0:
             # Create a local tmp rule
-            rule_dict = {'description': 'artifact'}
-            rule_dict['path'] = args.path[0]
-            rule_dict['conditions'] = []
+            rule_dict = {'description': 'artifact', 'path': args.path[0], 'conditions': []}
             rule_filename = 'listall-artifact.json'
             with open(os.path.join(os.getcwd(), rule_filename), 'wt') as f:
                 f.write(json.dumps(rule_dict))
@@ -98,7 +98,7 @@ def main():
                 # 3. Load default set of keys based on path
                 target_path = rule.display_path if hasattr(rule, 'display_path') else rule.path
                 listall_configs_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'output/data/listall-configs')
-                target_file = os.path.join(listall_configs_dir, '%s.json' % target_path)
+                target_file = os.path.join(listall_configs_dir, f'{target_path}.json')
                 if os.path.isfile(target_file):
                     with open(target_file, 'rt') as f:
                         rule.keys = json.load(f)['keys']

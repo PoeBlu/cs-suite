@@ -34,14 +34,16 @@ class ProcessingEngine(object):
                 if not rule.enabled:  # or rule.service not in []: # TODO: handle this...
                     continue
 
-                printDebug('Processing %s rule[%s]: "%s"' % (rule.service, rule.filename, rule.description))
+                printDebug(
+                    f'Processing {rule.service} rule[{rule.filename}]: "{rule.description}"'
+                )
                 finding_path = rule.path
                 path = finding_path.split('.')
                 service = path[0]
                 manage_dictionary(aws_config['services'][service], self.ruleset.rule_type, {})
-                aws_config['services'][service][self.ruleset.rule_type][rule.key] = {}
-                aws_config['services'][service][self.ruleset.rule_type][rule.key]['description'] = rule.description
-                aws_config['services'][service][self.ruleset.rule_type][rule.key]['path'] = rule.path
+                aws_config['services'][service][self.ruleset.rule_type][
+                    rule.key
+                ] = {'description': rule.description, 'path': rule.path}
                 for attr in ['level', 'id_suffix', 'display_path']:
                     if hasattr(rule, attr):
                         aws_config['services'][service][self.ruleset.rule_type][rule.key][attr] = getattr(rule, attr)
@@ -57,7 +59,7 @@ class ProcessingEngine(object):
                     aws_config['services'][service][self.ruleset.rule_type][rule.key]['rationale'] = rule.rationale if hasattr(rule, 'rationale') else 'N/A'
                 except Exception as e:
                     printException(e)
-                    printError('Failed to process rule defined in %s' % rule.filename)
+                    printError(f'Failed to process rule defined in {rule.filename}')
                     # Fallback if process rule failed to ensure report creation and data dump still happen
                     aws_config['services'][service][self.ruleset.rule_type][rule.key]['checked_items'] = 0
                     aws_config['services'][service][self.ruleset.rule_type][rule.key]['flagged_items'] = 0

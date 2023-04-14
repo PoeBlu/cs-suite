@@ -33,7 +33,7 @@ def fix_path_string(all_info, current_path, path_to_value):
                     break
                 tmp = nested[0].replace('_GET_VALUE_AT_(', '', 1)
             dv = get_value_at(all_info, current_path, tmp)
-            path_to_value = path_to_value.replace('_GET_VALUE_AT_(%s)' % tmp, dv)
+            path_to_value = path_to_value.replace(f'_GET_VALUE_AT_({tmp})', dv)
     return path_to_value
 
 
@@ -68,7 +68,14 @@ def recurse(all_info, current_info, target_path, current_path, config, add_suffi
         if attribute in current_info:
             split_path = copy.deepcopy(current_path)
             split_path.append(attribute)
-            results = results + recurse(all_info, current_info[attribute], target_path, split_path, config, add_suffix)
+            results += recurse(
+                all_info,
+                current_info[attribute],
+                target_path,
+                split_path,
+                config,
+                add_suffix,
+            )
         elif attribute == 'id':
             for key in current_info:
                 split_target_path = copy.deepcopy(target_path)
@@ -76,17 +83,18 @@ def recurse(all_info, current_info, target_path, current_path, config, add_suffi
                 split_current_path.append(key)
                 split_current_info = current_info[key]
                 results = results + recurse(all_info, split_current_info, split_target_path, split_current_path, config, add_suffix)
-    # To handle lists properly, I would have to make sure the list is properly ordered and I can use the index to consistently access an object... Investigate (or do not use lists)
     elif type(current_info) == list:
         for index, split_current_info in enumerate(current_info):
             split_current_path = copy.deepcopy(current_path)
             split_current_path.append(str(index))
             results = results + recurse(all_info, split_current_info, copy.deepcopy(target_path), split_current_path, config, add_suffix)
     else:
-        printError('Error: unhandled case, typeof(current_info) = %s' % type(current_info))
-        printError('Path: %s' % current_path)
-        printError('Object: %s' % str(current_info))
-        printError('Entry target path: %s' % str(dbg_target_path))
+        printError(
+            f'Error: unhandled case, typeof(current_info) = {type(current_info)}'
+        )
+        printError(f'Path: {current_path}')
+        printError(f'Object: {str(current_info)}')
+        printError(f'Entry target path: {str(dbg_target_path)}')
         raise Exception
     return results
 
@@ -114,13 +122,12 @@ def pass_conditions(all_info, current_path, conditions, unknown_as_pass_conditio
             path_to_value = fix_path_string(all_info, current_path, path_to_value)
             target_obj = get_value_at(all_info, current_path, path_to_value)
             if type(test_values) != list:
-                dynamic_value = re_get_value_at.match(test_values)
-                if dynamic_value:
+                if dynamic_value := re_get_value_at.match(test_values):
                     test_values = get_value_at(all_info, current_path, dynamic_value.groups()[0], True)
             try:
                 res = pass_condition(target_obj, test_name, test_values)
             except Exception as e:
-                res = True if unknown_as_pass_condition else False
+                res = bool(unknown_as_pass_condition)
                 printError('Unable to process testcase \'%s\' on value \'%s\', interpreted as %s.' % (test_name, str(target_obj), res))
                 printException(e, True)
         # Quick exit and + false
@@ -132,7 +139,4 @@ def pass_conditions(all_info, current_path, conditions, unknown_as_pass_conditio
     # Still here ?
     # or -> false
     # and -> true
-    if condition_operator == 'or':
-        return False
-    else:
-        return True
+    return condition_operator != 'or'

@@ -25,8 +25,7 @@ class CloudTrailRegionConfig(RegionConfig):
         :param region:                  Name of the AWS region
         :param cluster:                 Trail
         """
-        trail_config = {}
-        trail_config['name'] = trail.pop('Name')
+        trail_config = {'name': trail.pop('Name')}
         trail_id = self.get_non_aws_id(trail_config['name'])
         trail_details = None
 
@@ -36,7 +35,9 @@ class CloudTrailRegionConfig(RegionConfig):
         if 'IsMultiRegionTrail' in trail and trail['IsMultiRegionTrail'] and trail['HomeRegion'] != region:
             for key in ['HomeRegion', 'TrailARN']:
                 trail_config[key] = trail[key]
-            trail_config['scout2_link'] = 'services.cloudtrail.regions.%s.trails.%s' % (trail['HomeRegion'], trail_id)
+            trail_config[
+                'scout2_link'
+            ] = f"services.cloudtrail.regions.{trail['HomeRegion']}.trails.{trail_id}"
         else:
             for key in trail:
                 trail_config[key] = trail[key]
@@ -93,19 +94,39 @@ class CloudTrailConfig(RegionalServiceConfig):
 def cloudtrail_postprocessing(aws_config):
     cloudtrail_config = aws_config['services']['cloudtrail']
     # Global services logging duplicated
-    if 'cloudtrail-duplicated-global-services-logging' in cloudtrail_config['violations']:
-        if len(cloudtrail_config['violations']['cloudtrail-duplicated-global-services-logging']['items']) < 2:
-            cloudtrail_config['violations']['cloudtrail-duplicated-global-services-logging']['items'] = []
-            cloudtrail_config['violations']['cloudtrail-duplicated-global-services-logging']['flagged_items'] = 0
+    if (
+        'cloudtrail-duplicated-global-services-logging'
+        in cloudtrail_config['violations']
+        and len(
+            cloudtrail_config['violations'][
+                'cloudtrail-duplicated-global-services-logging'
+            ]['items']
+        )
+        < 2
+    ):
+        cloudtrail_config['violations']['cloudtrail-duplicated-global-services-logging']['items'] = []
+        cloudtrail_config['violations']['cloudtrail-duplicated-global-services-logging']['flagged_items'] = 0
     # Global services logging disabled
-    if 'cloudtrail-no-global-services-logging' in cloudtrail_config['violations']:
-        if len(cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['items']) != cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['checked_items']:
-            cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['items'] = []
-            cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['flagged_items'] = 0
+    if (
+        'cloudtrail-no-global-services-logging'
+        in cloudtrail_config['violations']
+        and len(
+            cloudtrail_config['violations'][
+                'cloudtrail-no-global-services-logging'
+            ]['items']
+        )
+        != cloudtrail_config['violations'][
+            'cloudtrail-no-global-services-logging'
+        ]['checked_items']
+    ):
+        cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['items'] = []
+        cloudtrail_config['violations']['cloudtrail-no-global-services-logging']['flagged_items'] = 0
     # CloudTrail not enabled at all...
     if not sum(cloudtrail_config['regions'][r]['trails_count'] for r in cloudtrail_config['regions']):
         for r in cloudtrail_config['regions']:
-            cloudtrail_config['violations']['cloudtrail-no-logging']['items'].append('cloudtrail.regions.%s' % r)
+            cloudtrail_config['violations']['cloudtrail-no-logging'][
+                'items'
+            ].append(f'cloudtrail.regions.{r}')
             cloudtrail_config['violations']['cloudtrail-no-logging']['checked_items'] += 1
             cloudtrail_config['violations']['cloudtrail-no-logging']['flagged_items'] += 1
             cloudtrail_config['violations']['cloudtrail-no-logging']['dashboard_name'] = 'Regions'

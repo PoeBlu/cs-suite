@@ -3,6 +3,7 @@
 Base classes and functions for region-specific services
 """
 
+
 import copy
 import re
 
@@ -32,7 +33,7 @@ from AWSScout2.output.console import FetchStatusLogger
 # Globals
 ########################################
 
-api_clients = dict()
+api_clients = {}
 
 first_cap_re = re.compile('(.)([A-Z][a-z]+)')
 all_caps_re = re.compile('([a-z0-9])([A-Z])')
@@ -70,7 +71,10 @@ class RegionalServiceConfig(object):
                 if 'api_call' not in resource_metadata:
                     continue
                 params = resource_metadata['params'] if 'params' in resource_metadata else {}
-                ignore_exceptions = True if 'no_exceptions' in resource_metadata and resource_metadata['no_exceptions'] == True else False
+                ignore_exceptions = (
+                    'no_exceptions' in resource_metadata
+                    and resource_metadata['no_exceptions'] == True
+                )
                 if not only_first_region:
                     self.targets['other_regions'] += ((resource, resource_metadata['response'], resource_metadata['api_call'], params, ignore_exceptions),)
                 self.targets['first_region'] += ((resource, resource_metadata['response'], resource_metadata['api_call'], params, ignore_exceptions),)
@@ -101,17 +105,17 @@ class RegionalServiceConfig(object):
         realtargets = ()
         if not targets:
             targets = self.targets
-        for i, target in enumerate(targets['first_region']):
+        for target in targets['first_region']:
             params = self.tweak_params(target[3], credentials)
             realtargets = realtargets + ((target[0], target[1], target[2], params, target[4]),)
         targets['first_region'] = realtargets
         realtargets = ()
-        for i, target in enumerate(targets['other_regions']):
+        for target in targets['other_regions']:
             params = self.tweak_params(target[3], credentials)
             realtargets = realtargets + ((target[0], target[1], target[2], params, target[4]),)
         targets['other_regions'] = realtargets
 
-        printInfo('Fetching %s config...' % format_service_name(self.service))
+        printInfo(f'Fetching {format_service_name(self.service)} config...')
         self.fetchstatuslogger = FetchStatusLogger(targets['first_region'], True)
         api_service = 'ec2' if self.service.lower() == 'vpc' else self.service.lower()
         # Init regions
@@ -131,15 +135,15 @@ class RegionalServiceConfig(object):
         self.fetchstatuslogger.show(True)
 
     def _init_threading(self, function, params={}, num_threads=10):
-            # Init queue and threads
-            q = Queue(maxsize=0) # TODO: find something appropriate
-            if not num_threads:
-                num_threads = len(targets)
-            for i in range(num_threads):
-                worker = Thread(target=function, args=(q, params))
-                worker.setDaemon(True)
-                worker.start()
-            return q
+        # Init queue and threads
+        q = Queue(maxsize=0) # TODO: find something appropriate
+        if not num_threads:
+            num_threads = len(targets)
+        for _ in range(num_threads):
+            worker = Thread(target=function, args=(q, params))
+            worker.setDaemon(True)
+            worker.start()
+        return q
 
     def _fetch_region(self, q, params):
         global api_clients
@@ -160,7 +164,6 @@ class RegionalServiceConfig(object):
                     q.task_done()
         except Exception as e:
             printException(e)
-            pass
 
     def _fetch_target(self, q, params):
         try:
@@ -185,11 +188,10 @@ class RegionalServiceConfig(object):
                     q.task_done()
         except Exception as e:
             printException(e)
-            pass
 
     def finalize(self):
         for t in self.fetchstatuslogger.counts:
-            setattr(self, '%s_count' % t, self.fetchstatuslogger.counts[t]['fetched'])
+            setattr(self, f'{t}_count', self.fetchstatuslogger.counts[t]['fetched'])
         delattr(self, 'fetchstatuslogger')
         for r in self.regions:
             if hasattr(self.regions[r], 'fetchstatuslogger'):
@@ -201,13 +203,10 @@ class RegionalServiceConfig(object):
             for k in params:
                 params[k] = self.tweak_params(params[k], credentials)
         elif type(params) == list:
-            newparams = []
-            for v in params:
-                newparams.append(self.tweak_params(v, credentials))
+            newparams = [self.tweak_params(v, credentials) for v in params]
             params = newparams
-        else:
-            if params == '_AWS_ACCOUNT_ID_':
-                params = get_aws_account_id(credentials)
+        elif params == '_AWS_ACCOUNT_ID_':
+            params = get_aws_account_id(credentials)
         return params
 
 
@@ -225,7 +224,7 @@ class RegionConfig(GlobalConfig):
         self.region = region_name
         for resource_type in resource_types['region'] + resource_types['global']:
             setattr(self, resource_type, {})
-            setattr(self, '%s_count' % resource_type, 0)
+            setattr(self, f'{resource_type}_count', 0)
         if len(resource_types['vpc']) > 0:
             setattr(self, 'vpcs', {})
             self.vpc_resource_types = resource_types['vpc']
@@ -233,12 +232,10 @@ class RegionConfig(GlobalConfig):
 
     def fetch_all(self, api_client, fetchstatuslogger, q, targets):
         self.fetchstatuslogger = fetchstatuslogger
-        if targets != None:
-            # Ensure targets is a tuple
-            if type(targets) != list and type(targets) != tuple:
-                targets = tuple(targets,)
-            elif type(targets) != tuple:
-                targets = tuple(targets)
+        if targets != None and (
+            type(targets) not in [list, tuple] or type(targets) != tuple
+        ):
+            targets = tuple(targets,)
         for target in targets:
             self._fetch_targets(api_client, q, target)
 
@@ -253,13 +250,13 @@ class RegionConfig(GlobalConfig):
             if not ignore_list_error:
                 printException(e)
             targets = []
-        setattr(self, '%s_count' % target_type, len(targets))
+        setattr(self, f'{target_type}_count', len(targets))
         self.fetchstatuslogger.counts[target_type]['discovered'] += len(targets)
         region = api_client._client_config.region_name
         # Queue resources
         for target in targets:
             try:
-                callback = getattr(self, 'parse_%s' % target_type[0:-1])
+                callback = getattr(self, f'parse_{target_type[:-1]}')
             except:
                 callback = self.store_target
                 target['scout2_target_type'] = target_type

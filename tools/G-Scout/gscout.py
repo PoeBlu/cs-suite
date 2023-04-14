@@ -25,9 +25,9 @@ def list_projects(project_or_org,specifier):
 		'v1',credentials=storage.get())
 
 	if project_or_org=="organization":
-		request = service.projects().list(filter='parent.id:%s' % specifier)
+		request = service.projects().list(filter=f'parent.id:{specifier}')
 	elif project_or_org=="project":
-		request = service.projects().list(filter='name:%s' % specifier)
+		request = service.projects().list(filter=f'name:{specifier}')
 	else:
 		raise Exception('Organization or Project not specified.')
 	while request is not None:

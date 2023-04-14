@@ -9,7 +9,15 @@ service = discovery.build('cloudresourcemanager', 'v1', credentials=storage.get(
 
 def insert_roles(projectId, db):
 	headers = {"Content-Length":0}
-	resp, content = storage.get().authorize(Http()).request("https://cloudresourcemanager.googleapis.com/v1/projects/" + projectId + ":getIamPolicy","POST", headers=headers)
+	resp, content = (
+		storage.get()
+		.authorize(Http())
+		.request(
+			f"https://cloudresourcemanager.googleapis.com/v1/projects/{projectId}:getIamPolicy",
+			"POST",
+			headers=headers,
+		)
+	)
 	for role in json.loads(content)['bindings']:
 		db.table('Role').insert(role)
 #this does not support pagination of results

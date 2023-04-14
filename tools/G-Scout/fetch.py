@@ -5,7 +5,7 @@ logging.basicConfig(filename="log.txt")
 from tinydb import TinyDB, Query
 
 def fetch(projectId):
-	db = TinyDB("project_dbs/" + projectId + ".json")
+	db = TinyDB(f"project_dbs/{projectId}.json")
 	from rules import rules
 	from display_results import display_results
 	from insert_entity import insert_entity

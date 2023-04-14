@@ -12,9 +12,7 @@ VERSION = __import__(NAME).__version__
 # Requirements
 requirements = []
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AWSScout2', 'data', 'requirements.txt')) as f:
-    for r in f.readlines():
-        requirements.append(r.strip())
-
+    requirements.extend(r.strip() for r in f)
 # Setup
 setup(
     name=NAME,

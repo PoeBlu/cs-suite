@@ -33,8 +33,10 @@ class Ruleset(object):
         self.filename = self.find_file(filename)
         if not self.filename:
             self.search_ruleset(environment_name)
-        printDebug('Loading ruleset %s' % self.filename)
-        self.name = os.path.basename(self.filename).replace('.json','') if not name else name
+        printDebug(f'Loading ruleset {self.filename}')
+        self.name = (
+            name if name else os.path.basename(self.filename).replace('.json', '')
+        )
         self.load(self.rule_type)
         self.shared_init(ruleset_generator, rules_dir, aws_account_id, ip_ranges)
 
@@ -50,8 +52,7 @@ class Ruleset(object):
             self.load_rule_definitions(ruleset_generator, rule_dirs)
 
         # Prepare the rules
-        params = {}
-        params['aws_account_id'] = aws_account_id
+        params = {'aws_account_id': aws_account_id}
         if ruleset_generator:
             self.prepare_rules(attributes =  ['description', 'key', 'rationale'], params = params)
         else:
@@ -77,13 +78,13 @@ class Ruleset(object):
                             self.handle_rule_versions(filename, rule_type, rule)
             except Exception as e:
                 printException(e)
-                printError('Error: ruleset file %s contains malformed JSON.' % self.filename)
+                printError(f'Error: ruleset file {self.filename} contains malformed JSON.')
                 self.rules = []
                 self.about = ''
         else:
             self.rules = []
             if not quiet:
-                printError('Error: the file %s does not exist.' % self.filename)
+                printError(f'Error: the file {self.filename} does not exist.')
 
 
     def load_rules(self, file, rule_type, quiet = False):
@@ -166,12 +167,16 @@ class Ruleset(object):
         """
         ruleset_found = False
         if environment_name != 'default':
-            ruleset_file_name = 'ruleset-%s.json' % environment_name
+            ruleset_file_name = f'ruleset-{environment_name}.json'
             ruleset_file_path = os.path.join(os.getcwd(), ruleset_file_name)
-            if os.path.exists(ruleset_file_path):
-                if no_prompt or prompt_4_yes_no("A ruleset whose name matches your environment name was found in %s. Would you like to use it instead of the default one" % ruleset_file_name):
-                    ruleset_found = True
-                    self.filename = ruleset_file_path
+            if os.path.exists(ruleset_file_path) and (
+                no_prompt
+                or prompt_4_yes_no(
+                    f"A ruleset whose name matches your environment name was found in {ruleset_file_name}. Would you like to use it instead of the default one"
+                )
+            ):
+                ruleset_found = True
+                self.filename = ruleset_file_path
         if not ruleset_found:
             self.filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/rulesets/default.json')
 
@@ -186,11 +191,11 @@ class Ruleset(object):
         if filename and not os.path.isfile(filename):
             # Not a valid relative / absolute path, check Scout2's data under findings/ or filters/
             if not filename.startswith('findings/') and not filename.startswith('filters/'):
-                filename = '%s/%s' % (filetype, filename)
+                filename = f'{filetype}/{filename}'
             if not os.path.isfile(filename):
                 filename = os.path.join(self.rules_data_path, filename)
             if not os.path.isfile(filename) and not filename.endswith('.json'):
-                filename = self.find_file('%s.json' % filename, filetype)
+                filename = self.find_file(f'{filename}.json', filetype)
         return filename
 
 

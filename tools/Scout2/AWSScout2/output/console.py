@@ -39,7 +39,7 @@ def format_listall_output(format_file, format_item_dir, format, rule, option_pre
             re_option = re.compile(r'(%_OPTION_\((.*?)\)_NOITPO_)')
             optional_files = re_option.findall(template)
             for optional_file in optional_files:
-                if optional_file[1].startswith(option_prefix + '-'):
+                if optional_file[1].startswith(f'{option_prefix}-'):
                     with open(os.path.join(format_item_dir, optional_file[1].strip()), 'rt') as f:
                         template = template.replace(optional_file[0].strip(), f.read())
         # Include files if needed
@@ -62,7 +62,7 @@ def format_listall_output(format_file, format_item_dir, format, rule, option_pre
                 break
     elif format and format[0] == 'csv':
         keys = rule.keys
-        line = ', '.join('_KEY_(%s)' % k for k in keys)
+        line = ', '.join(f'_KEY_({k})' for k in keys)
         lines = [ (line, line, keys) ]
         template = line
     return (lines, template)
@@ -86,9 +86,14 @@ def generate_listall_output(lines, resources, aws_config, template, arguments, n
             current_path = resource.split('.')
             outline = line[1]
             for key in line[2]:
-                outline = outline.replace('_KEY_('+key+')', get_value_at(aws_config['services'], current_path, key, True))
+                outline = outline.replace(
+                    f'_KEY_({key})',
+                    get_value_at(
+                        aws_config['services'], current_path, key, True
+                    ),
+                )
             output.append(outline)
-        output = '\n'.join(line for line in sorted(set(output)))
+        output = '\n'.join(sorted(set(output)))
         template = template.replace(line[0], output)
     for (i, argument) in enumerate(arguments):
         template = template.replace('_ARG_%d_' % i, argument)
@@ -124,7 +129,7 @@ class FetchStatusLogger():
     def show(self, new_line = False):
         values = ()
         for target in self.targets:
-            v = '%s/%s' % (self.counts[target]['fetched'], self.counts[target]['discovered'])
+            v = f"{self.counts[target]['fetched']}/{self.counts[target]['discovered']}"
             values += (v,)
         self.__out(values, new_line)
 

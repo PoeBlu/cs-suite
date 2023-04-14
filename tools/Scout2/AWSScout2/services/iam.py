@@ -135,8 +135,7 @@ class IAMConfig(BaseConfig):
         Parse a single IAM policy and fetch additional information
         """
         api_client = params['api_client']
-        policy = {}
-        policy['name'] = fetched_policy.pop('PolicyName')
+        policy = {'name': fetched_policy.pop('PolicyName')}
         policy['id'] = fetched_policy.pop('PolicyId')
         policy['arn'] = fetched_policy.pop('Arn')
         # Download version and document
@@ -184,14 +183,15 @@ class IAMConfig(BaseConfig):
 
         except ClientError as e:
             if e.response['Error']['Code'] == 'NoSuchEntity':
-                    self.password_policy = {}
-                    self.password_policy['MinimumPasswordLength'] = '1' # As of 10/10/2016, 1-character passwords were authorized when no policy exists, even though the console displays 6
-                    self.password_policy['RequireUppercaseCharacters'] = False
-                    self.password_policy['RequireLowercaseCharacters'] = False
-                    self.password_policy['RequireNumbers'] = False
-                    self.password_policy['RequireSymbols'] = False
-                    self.password_policy['PasswordReusePrevention'] = False
-                    self.password_policy['ExpirePasswords'] = False
+                self.password_policy = {
+                    'MinimumPasswordLength': '1',
+                    'RequireUppercaseCharacters': False,
+                    'RequireLowercaseCharacters': False,
+                    'RequireNumbers': False,
+                    'RequireSymbols': False,
+                    'PasswordReusePrevention': False,
+                    'ExpirePasswords': False,
+                }
             else:
                 raise e
         except Exception as e:
@@ -206,14 +206,11 @@ class IAMConfig(BaseConfig):
         """
         Parse a single IAM role and fetch additional data
         """
-        role = {}
-        role['instances_count'] = 'N/A'
         # When resuming upon throttling error, skip if already fetched
         if fetched_role['RoleName'] in self.roles:
             return
         api_client = params['api_client']
-        # Ensure consistent attribute names across resource types
-        role['id'] = fetched_role.pop('RoleId')
+        role = {'instances_count': 'N/A', 'id': fetched_role.pop('RoleId')}
         role['name'] = fetched_role.pop('RoleName')
         role['arn'] = fetched_role.pop('Arn')
         # Get other attributes
@@ -304,11 +301,8 @@ class IAMConfig(BaseConfig):
 
 
     def __fetch_group_users(self, api_client, group_name):
-        users = []
         fetched_users = api_client.get_group(GroupName = group_name)['Users']
-        for user in fetched_users:
-            users.append(user['UserId'])
-        return users
+        return [user['UserId'] for user in fetched_users]
 
 
     ########################################
@@ -316,18 +310,16 @@ class IAMConfig(BaseConfig):
     ########################################
     def __get_inline_policies(self, api_client, iam_resource_type, resource_id, resource_name):
         fetched_policies = {}
-        get_policy_method = getattr(api_client, 'get_' + iam_resource_type + '_policy')
-        list_policy_method = getattr(api_client, 'list_' + iam_resource_type + '_policies')
-        args = {}
-        args[iam_resource_type.title() + 'Name'] = resource_name
+        get_policy_method = getattr(api_client, f'get_{iam_resource_type}_policy')
+        list_policy_method = getattr(api_client, f'list_{iam_resource_type}_policies')
+        args = {f'{iam_resource_type.title()}Name': resource_name}
         try:
             policy_names = list_policy_method(**args)['PolicyNames']
         except Exception as e:
             if is_throttled(e):
                 raise e
-            else:
-                printException(e)
-                return fetched_policies
+            printException(e)
+            return fetched_policies
         try:
             for policy_name in policy_names:
                 args['PolicyName'] = policy_name
@@ -336,7 +328,13 @@ class IAMConfig(BaseConfig):
                 manage_dictionary(fetched_policies, policy_id, {})
                 fetched_policies[policy_id]['PolicyDocument'] = policy_document
                 fetched_policies[policy_id]['name'] = policy_name
-                self.__parse_permissions(policy_id, policy_document, 'inline_policies', iam_resource_type + 's', resource_id)
+                self.__parse_permissions(
+                    policy_id,
+                    policy_document,
+                    'inline_policies',
+                    f'{iam_resource_type}s',
+                    resource_id,
+                )
         except Exception as e:
             if is_throttled(e):
                 raise e
@@ -354,22 +352,22 @@ class IAMConfig(BaseConfig):
 
 
     def __parse_statement(self, policy_name, statement, policy_type, iam_resource_type, resource_name):
-            # Effect
-            effect = str(statement['Effect'])
-            # Action or NotAction
-            action_string = 'Action' if 'Action' in statement else 'NotAction'
-            if type(statement[action_string]) != list:
-                statement[action_string] = [ statement[action_string] ]
-            # Resource or NotResource
-            resource_string = 'Resource' if 'Resource' in statement else 'NotResource'
-            if type(statement[resource_string]) != list:
-                statement[resource_string] = [ statement[resource_string] ]
-            # Condition
-            condition = statement['Condition'] if 'Condition' in statement else None
-            manage_dictionary(self.permissions, action_string, {})
-            if iam_resource_type == None:
-                return
-            self.__parse_actions(effect, action_string, statement[action_string], resource_string, statement[resource_string], iam_resource_type, resource_name, policy_name, policy_type, condition)
+        # Effect
+        effect = str(statement['Effect'])
+        # Action or NotAction
+        action_string = 'Action' if 'Action' in statement else 'NotAction'
+        if type(statement[action_string]) != list:
+            statement[action_string] = [ statement[action_string] ]
+        # Resource or NotResource
+        resource_string = 'Resource' if 'Resource' in statement else 'NotResource'
+        if type(statement[resource_string]) != list:
+            statement[resource_string] = [ statement[resource_string] ]
+        # Condition
+        condition = statement['Condition'] if 'Condition' in statement else None
+        manage_dictionary(self.permissions, action_string, {})
+        if iam_resource_type is None:
+            return
+        self.__parse_actions(effect, action_string, statement[action_string], resource_string, statement[resource_string], iam_resource_type, resource_name, policy_name, policy_type, condition)
 
 
     def __parse_actions(self, effect, action_string, actions, resource_string, resources, iam_resource_type, iam_resource_name, policy_name, policy_type, condition):

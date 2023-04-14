@@ -27,8 +27,7 @@ class ELBRegionConfig(RegionConfig):
         :param elb:
         :return:
         """
-        elb = {}
-        elb['name'] = lb.pop('LoadBalancerName')
+        elb = {'name': lb.pop('LoadBalancerName')}
         vpc_id = lb['VPCId'] if 'VPCId' in lb and lb['VPCId'] else ec2_classic
         manage_dictionary(self.vpcs, vpc_id, VPCConfig(self.vpc_resource_types))
         get_keys(lb, elb, ['DNSName', 'CreatedTime', 'AvailabilityZones', 'Subnets', 'Scheme'])

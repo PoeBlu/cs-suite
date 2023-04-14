@@ -11,74 +11,75 @@ script_json = awsaudit.script_json
 
 def trusted_advisor_to_json():
     data = []
-    with open('reports/AWS/aws_audit/%s/%s/final_report/trusted.json' % (account_name, timestmp), 'r') as f:
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/trusted.json', 'r') as f:
         for line in f:
             k = json.loads(line)
             data.append(k['check'])
     data = set(data)
 
     for i in data:
-        with open('reports/AWS/aws_audit/%s/%s/final_report/%s.txt' % (account_name, timestmp, i), 'w+') as f:
-            with open('reports/AWS/aws_audit/%s/%s/final_report/trusted.json' % (account_name, timestmp), 'r') as j:
+        with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/{i}.txt', 'w+') as f:
+            with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/trusted.json', 'r') as j:
                 for line in j:
                     k = json.loads(line)
                     if k['check'] == i:
                         f.write(line)
     final_json = {}
     report = []
-    for f in glob.glob("reports/AWS/aws_audit/%s/%s/final_report/*.txt" % (account_name, timestmp)):
+    for f in glob.glob(f"reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/*.txt"):
         dict = {}
         data = []
         with open(f, 'r') as g:
             for line in g:
-                new_dict = {}
                 j = json.loads(line)
                 dict['check'] = j['check']
-                new_dict['check_no'] = j['check_no']
-                new_dict['score'] = j['score']
-                new_dict['level'] = j['level']
-                new_dict['type'] = j['type']
-                new_dict['region'] = j['region']
-                new_dict['value'] = j['value']
+                new_dict = {
+                    'check_no': j['check_no'],
+                    'score': j['score'],
+                    'level': j['level'],
+                    'type': j['type'],
+                    'region': j['region'],
+                    'value': j['value'],
+                }
                 data.append(new_dict)
         dict['data'] = data
         report.append(dict)
         final_json['report'] = report
-    with open('reports/AWS/aws_audit/%s/%s/final_report/final_json' % (account_name, timestmp), 'w') as f:
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/final_json', 'w') as f:
         f.write(json.dumps(final_json))
-    for f in glob.glob("reports/AWS/aws_audit/%s/%s/final_report/*.txt" % (account_name, timestmp)):
+    for f in glob.glob(f"reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/*.txt"):
         os.remove(f)
     json_to_html_trusted()
 
 def json_to_html_trusted():
-    with open('./reports/AWS/aws_audit/%s/%s/final_report/trusted_advisor.html' % (account_name, timestmp), 'w') as f:
+    with open(f'./reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/trusted_advisor.html', 'w') as f:
         with open('./tools/prowler/template1.txt', 'r') as g:
              for line in g:
                   f.write(line)
-        with open('./reports/AWS/aws_audit/%s/%s/final_report/final_json' % (account_name, timestmp), 'r') as json_data:
-             final = json.load(json_data)
-             for i in final['report']:
-                  f.write('<div class="col-xs-6 col-sm-3 col-md-3 item">\n')
-                  f.write('<div class="thumbnail">\n')
-                  f.write('<div class="caption">\n')
-                  flag = 0
-                  for g in i['data']:
-                     if g['type'] in ['warning', 'error']:
-                         flag = 1
-                  if flag == 0:
-                     f.write('<div class="grid" style="background-color: green;">')
-                  else:
-                     f.write('<div class="grid" style="background-color: red;">')
-                  f.write('<h5>%s</h5>\n' %(i['check']))
-                  f.write('</div>')
-                  for k in i['data']:
-                       if k['type'] in ['warning', 'error']:
-                           f.write('<p><span style="color:red">Warning: </span>%s</p>\n' %(k['value']))
-                       else:
-                           f.write('<p>%s</p>\n' %(k['value']))
-                  f.write('</div>\n')
-                  f.write('</div>\n')
-                  f.write('</div>\n')
+        with open(f'./reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/final_json', 'r') as json_data:
+            final = json.load(json_data)
+            for i in final['report']:
+                 f.write('<div class="col-xs-6 col-sm-3 col-md-3 item">\n')
+                 f.write('<div class="thumbnail">\n')
+                 f.write('<div class="caption">\n')
+                 flag = 0
+                 for g in i['data']:
+                    if g['type'] in ['warning', 'error']:
+                        flag = 1
+                 if flag == 0:
+                    f.write('<div class="grid" style="background-color: green;">')
+                 else:
+                    f.write('<div class="grid" style="background-color: red;">')
+                 f.write('<h5>%s</h5>\n' %(i['check']))
+                 f.write('</div>')
+                 for k in i['data']:
+                      if k['type'] in ['warning', 'error']:
+                          f.write('<p><span style="color:red">Warning: </span>%s</p>\n' %(k['value']))
+                      else:
+                          f.write('<p>%s</p>\n' %(k['value']))
+                 f.write('</div>\n')
+                 f.write('</div>\n')
+                 f.write('</div>\n')
         with open('./tools/prowler/template2.txt', 'r') as k:
              for line in k:
                  f.write(line)
@@ -86,46 +87,47 @@ def json_to_html_trusted():
 
 def json_to_final_json():
     report = []
-    for f in glob.glob("reports/AWS/aws_audit/%s/%s/delta/*.json" %(account_name, timestmp)):
+    for f in glob.glob(f"reports/AWS/aws_audit/{account_name}/{timestmp}/delta/*.json"):
         dict = {}
         data = []
         with open(f, 'r') as g:
-             for line in g:
-                 new_dict = {}
-                 j = json.loads(line)
-                 dict['check'] = j['check']
-                 new_dict['check_no'] = j['check_no']
-                 new_dict['score'] = j['score']
-                 new_dict['level'] = j['level']
-                 new_dict['type'] = j['type']
-                 new_dict['region'] = j['region']
-                 new_dict['value'] = j['value']
-                 data.append(new_dict)
+            for line in g:
+                j = json.loads(line)
+                dict['check'] = j['check']
+                new_dict = {
+                    'check_no': j['check_no'],
+                    'score': j['score'],
+                    'level': j['level'],
+                    'type': j['type'],
+                    'region': j['region'],
+                    'value': j['value'],
+                }
+                data.append(new_dict)
         dict['data'] = data
         report.append(dict)
         script_json['report'] = report
-    with open('reports/AWS/aws_audit/%s/%s/delta/final_json' % (account_name, timestmp), 'w') as f:
-         f.write(json.dumps(script_json))
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/final_json', 'w') as f:
+        f.write(json.dumps(script_json))
     for i in script_json['report']:
         if i['check'] in ['CDN_AUDIT', 'CERT_AUDIT', 'DNS_AUDIT', 'ELB_AUDIT']:
-            with open('reports/AWS/aws_audit/%s/%s/delta/webnet.json' % (account_name, timestmp), 'a+') as f:
+            with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/webnet.json', 'a+') as f:
                 f.write(json.dumps(i))
                 f.write('\n')
         elif i['check'] in ['ELASTIC_CACHE_AUDIT', 'ELASTIC_SEARCH_AUDIT', 'RDS_AUDIT', 'REDSHIFT_AUDIT']:
-            with open('reports/AWS/aws_audit/%s/%s/delta/datastores.json' % (account_name, timestmp), 'a+') as f:
+            with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/datastores.json', 'a+') as f:
                 f.write(json.dumps(i))
                 f.write('\n')
         elif i['check'] in ['CLOUD_FORMATION_AUDIT', 'SES_AUDIT', 'SNS_AUDIT']:
-            with open('reports/AWS/aws_audit/%s/%s/delta/notification.json' % (account_name, timestmp), 'a+') as f:
+            with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/notification.json', 'a+') as f:
                 f.write(json.dumps(i))
                 f.write('\n')
         else:
-            with open('reports/AWS/aws_audit/%s/%s/delta/configs.json' % (account_name, timestmp), 'a+') as f:
+            with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/configs.json', 'a+') as f:
                 f.write(json.dumps(i))
                 f.write('\n')
 
 def json_to_html_prowler():
-    with open('./reports/AWS/aws_audit/%s/%s/delta/prowler_report.html' % (account_name, timestmp), 'w') as f:
+    with open(f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/prowler_report.html', 'w') as f:
         with open('./tools/prowler/template1.txt', 'r') as g:
              for line in g:
                   f.write(line)
@@ -134,7 +136,7 @@ def json_to_html_prowler():
              for i in final['report']:
                   f.write('<div class="col-xs-6 col-sm-3 col-md-3 item">\n')
                   f.write('<div class="thumbnail">\n')
-		  f.write('<div class="caption">\n')
+        f.write('<div class="caption">\n')
                   flag = 0
                   for g in i['data']:
                      if g['type'] == 'WARNING':
@@ -193,7 +195,7 @@ def json_to_html(file, new_file):
 
 
 def merge_json():
-    with open('reports/AWS/aws_audit/%s/%s/delta/final_json' % (account_name, timestmp), 'r') as f:
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/final_json', 'r') as f:
         for line in f:
             j1 = json.loads(line)
     with open('./tools/prowler/final_json', 'r') as k:
@@ -201,7 +203,7 @@ def merge_json():
             j2 = json.loads(line)
     for js in j2['report']:
         j1['report'].append(js)
-    with open('reports/AWS/aws_audit/%s/%s/final_report/final_json' % (account_name, timestmp), 'w') as f:
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/final_json', 'w') as f:
         f.write(json.dumps(j1))
     os.remove('./tools/prowler/final_json')
 
@@ -214,7 +216,7 @@ def persistent_json(json_file):
             checks.append(j['check'])
     checks = set(checks)
     dict = {}
-    with open('reports/AWS/aws_audit/%s/%s/delta/final_diff.json' % (account_name, timestmp), 'w') as g:
+    with open(f'reports/AWS/aws_audit/{account_name}/{timestmp}/delta/final_diff.json', 'w') as g:
         for check in checks:
             dict = {}
             data = []
@@ -230,7 +232,10 @@ def persistent_json(json_file):
 
 
 def persis(j1,j2):
-    f=open("./reports/AWS/aws_audit/%s/%s/delta/diff.json" %(account_name, timestmp), "a+")
+    f = open(
+        f"./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/diff.json",
+        "a+",
+    )
     for data1 in j1['data']:
         for data2 in j2['data']:
             if data1==data2:
@@ -251,7 +256,9 @@ def persistent(latest, last):
         for d2 in data2['report']:
             if d2['check'] == d1['check']:
                 persis(d1,d2)
-    persistent_json("./reports/AWS/aws_audit/%s/%s/delta/diff.json" %(account_name, timestmp))
+    persistent_json(
+        f"./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/diff.json"
+    )
 
 
 
@@ -271,24 +278,46 @@ def persistent_files():
 
 
 def merge():
-    if os.stat('reports/AWS/aws_audit/%s/%s/final_report/trusted.json' % (account_name, timestmp)).st_size != 0:
+    if (
+        os.stat(
+            f'reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/trusted.json'
+        ).st_size
+        != 0
+    ):
         trusted_advisor_to_json()
     json_to_final_json()
     json_to_html_prowler()
-    json_to_html('./reports/AWS/aws_audit/%s/%s/delta/webnet.json' % (account_name, timestmp),
-                 './reports/AWS/aws_audit/%s/%s/delta/webnet.html' % (account_name, timestmp))
-    json_to_html('./reports/AWS/aws_audit/%s/%s/delta/datastores.json' % (account_name, timestmp),
-                 './reports/AWS/aws_audit/%s/%s/delta/datastores.html' % (account_name, timestmp))
-    json_to_html('./reports/AWS/aws_audit/%s/%s/delta/notification.json' % (account_name, timestmp),
-                 './reports/AWS/aws_audit/%s/%s/delta/notification.html' % (account_name, timestmp))
-    json_to_html('./reports/AWS/aws_audit/%s/%s/delta/configs.json' % (account_name, timestmp),
-                 './reports/AWS/aws_audit/%s/%s/delta/configs.html' % (account_name, timestmp))
+    json_to_html(
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/webnet.json',
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/webnet.html',
+    )
+    json_to_html(
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/datastores.json',
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/datastores.html',
+    )
+    json_to_html(
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/notification.json',
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/notification.html',
+    )
+    json_to_html(
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/configs.json',
+        f'./reports/AWS/aws_audit/{account_name}/{timestmp}/delta/configs.html',
+    )
     merge_json()
     persistent_files()
     subprocess.check_output(
-        ['cp -R ./tools/template/* ./reports/AWS/aws_audit/%s/%s/final_report/' % (account_name, timestmp)], shell=True)
-    subprocess.check_output(['rm ./reports/AWS/aws_audit/%s/%s/final_report/report_azure.html' % (account_name, timestmp)], shell=True)
+        [
+            f'cp -R ./tools/template/* ./reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/'
+        ],
+        shell=True,
+    )
+    subprocess.check_output(
+        [
+            f'rm ./reports/AWS/aws_audit/{account_name}/{timestmp}/final_report/report_azure.html'
+        ],
+        shell=True,
+    )
     webbrowser.open('file://' + os.path.realpath("./reports/AWS/aws_audit/%s/%s/final_report/report.html")
                     % (account_name, timestmp))
     fin = os.path.realpath("./reports/AWS/aws_audit/%s/%s/final_report/report.html") % (account_name, timestmp)
-    print ("THE FINAL REPORT IS LOCATED AT -------->  %s" % (fin))
+    print(f"THE FINAL REPORT IS LOCATED AT -------->  {fin}")

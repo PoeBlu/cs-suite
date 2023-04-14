@@ -117,7 +117,11 @@ def main():
     try:
         profile = AWSProfiles.get(profile_name)[0]
         if 'source_profile' in profile.attributes:
-            organization_info_file = os.path.join(os.path.expanduser('~/.aws/recipes/%s/organization.json' %  profile.attributes['source_profile']))
+            organization_info_file = os.path.join(
+                os.path.expanduser(
+                    f"~/.aws/recipes/{profile.attributes['source_profile']}/organization.json"
+                )
+            )
             if os.path.isfile(organization_info_file):
                 with open(organization_info_file, 'rt') as f:
                     org = {}
@@ -135,7 +139,7 @@ def main():
     # Open the report by default
     if not args.no_browser:
         printInfo('Opening the HTML report...')
-        url = 'file://%s' % os.path.abspath(html_report_path)
+        url = f'file://{os.path.abspath(html_report_path)}'
         webbrowser.open(url, new=2)
 
     return 0

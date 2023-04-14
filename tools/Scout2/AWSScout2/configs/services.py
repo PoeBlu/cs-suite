@@ -81,8 +81,7 @@ class ServicesConfig(object):
                     continue
                 service_config = getattr(self, service)
                 if 'fetch_all' in dir(service_config):
-                    method_args = {}
-                    method_args['credentials'] = credentials
+                    method_args = {'credentials': credentials}
                     if service != 'iam':
                         method_args['regions'] = regions
                         method_args['partition_name'] = partition_name
@@ -90,7 +89,7 @@ class ServicesConfig(object):
                     if hasattr(service_config, 'finalize'):
                         service_config.finalize()
             except Exception as e:
-                printError('Error: could not fetch %s configuration.' % service)
+                printError(f'Error: could not fetch {service} configuration.')
                 printException(e)
 
     def single_service_pass(self):
@@ -105,15 +104,14 @@ class ServicesConfig(object):
 
 def postprocessing(aws_config):
     for service in aws_config['services']:
-        method_name = '%s_postprocessing' % service
+        method_name = f'{service}_postprocessing'
         if method_name in globals():
             try:
-                printInfo('Post-processing %s config...' % format_service_name(service))
+                printInfo(f'Post-processing {format_service_name(service)} config...')
                 method = globals()[method_name]
                 method(aws_config)
             except Exception as e:
                 printException(e)
-                pass
 
 
 

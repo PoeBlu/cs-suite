@@ -12,7 +12,7 @@ def get_buckets(project):
 	response = request.execute()
 	buckets = []
 	if (response.get('items')):
-		for bucket in response['items']:
-			if "logging" not in bucket:
-				buckets.append(bucket)
+		buckets.extend(
+			bucket for bucket in response['items'] if "logging" not in bucket
+		)
 	return buckets				

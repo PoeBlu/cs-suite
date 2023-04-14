@@ -83,7 +83,7 @@ def port_in_range(port,ranges):
 
 def test_allowed(rule,IPProtocol,ports):
 	for allow in rule['allowed']:
-		if not allow['IPProtocol'] == IPProtocol:
+		if allow['IPProtocol'] != IPProtocol:
 			continue
 		for port in ports:
 			if allow.get('ports') and port_in_range(port,allow['ports']):
